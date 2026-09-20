@@ -1,0 +1,15 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        maven {
+            name = "NeoForged"
+            url = uri("https://maven.neoforged.net/releases")
+        }
+    }
+}
+
+plugins {
+    id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
+}
+
+rootProject.name = "crop_climates"
