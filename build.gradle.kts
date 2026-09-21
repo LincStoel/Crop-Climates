@@ -54,6 +54,15 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
+// EnclosureFloodTest exercises EnclosureFlood against synthetic grids built
+// from net.minecraft.core.BlockPos/Direction - plain data carriers, not live
+// world state - so the test source set needs Minecraft on its classpath even
+// though it never touches a Level. NeoGradle only wires that up for "main".
+sourceSets.test {
+    compileClasspath += sourceSets.main.get().compileClasspath
+    runtimeClasspath += sourceSets.main.get().runtimeClasspath
+}
+
 tasks.test {
     useJUnitPlatform()
 }
