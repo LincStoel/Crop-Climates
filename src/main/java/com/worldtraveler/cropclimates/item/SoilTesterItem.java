@@ -12,6 +12,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -20,6 +22,7 @@ import net.minecraft.world.level.Level;
 
 import java.util.OptionalDouble;
 import java.util.Locale;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Right-click a growing crop (or bare ground) for the local climate reading
@@ -54,6 +57,20 @@ public class SoilTesterItem extends Item {
         if (!level.isClientSide() && player != null) {
             if (report(level, player, context.getClickedPos())) {
                 player.getCooldowns().addCooldown(this, ENCLOSED_COOLDOWN_TICKS);
+            }
+        }
+        return InteractionResult.SUCCESS;
+    }
+
+    @Override
+    public InteractionResult interactLivingEntity(ItemStack stack, Player player, LivingEntity target, InteractionHand hand) {
+        if (!player.level().isClientSide()) {
+            if (target instanceof Player || target instanceof Enemy) {
+                tell(player, "§6The §f" + target.getName().getString() + "§6 did not allow you to take their temperature...");
+            } else {
+                double tempF = 97.0 + ThreadLocalRandom.current().nextDouble() * 2.0;
+                tell(player, "§6The §f" + target.getName().getString() + "§6's temperature is §f"
+                        + String.format(Locale.ROOT, "%.1f", tempF) + "°F");
             }
         }
         return InteractionResult.SUCCESS;
