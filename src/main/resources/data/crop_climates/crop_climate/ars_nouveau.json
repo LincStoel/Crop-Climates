@@ -1,0 +1,132 @@
+{
+ "bastion_pod": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.3,
+   0.8
+  ],
+  "item": "ars_nouveau:bastion_pod",
+  "temperature": [
+   40,
+   78
+  ],
+  "tree": false
+ },
+ "blue_archwood_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0.3,
+   0.8
+  ],
+  "item": "ars_nouveau:blue_archwood_sapling",
+  "temperature": [
+   40,
+   78
+  ],
+  "tree": true
+ },
+ "bombegranate_pod": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.15,
+   0.6
+  ],
+  "item": "ars_nouveau:bombegranate_pod",
+  "temperature": [
+   52,
+   95
+  ],
+  "tree": false
+ },
+ "frostaya_pod": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.3,
+   0.8
+  ],
+  "item": "ars_nouveau:frostaya_pod",
+  "temperature": [
+   20,
+   60
+  ],
+  "tree": false
+ },
+ "green_archwood_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0.3,
+   0.8
+  ],
+  "item": "ars_nouveau:green_archwood_sapling",
+  "temperature": [
+   40,
+   78
+  ],
+  "tree": true
+ },
+ "magebloom_crop": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.3,
+   0.9
+  ],
+  "item": "ars_nouveau:magebloom",
+  "temperature": [
+   45,
+   90
+  ],
+  "tree": false
+ },
+ "mendosteen_pod": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.3,
+   0.8
+  ],
+  "item": "ars_nouveau:mendosteen_pod",
+  "temperature": [
+   40,
+   78
+  ],
+  "tree": false
+ },
+ "purple_archwood_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0.3,
+   0.8
+  ],
+  "item": "ars_nouveau:purple_archwood_sapling",
+  "temperature": [
+   40,
+   78
+  ],
+  "tree": true
+ },
+ "red_archwood_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0.15,
+   0.6
+  ],
+  "item": "ars_nouveau:red_archwood_sapling",
+  "temperature": [
+   52,
+   95
+  ],
+  "tree": true
+ },
+ "sourceberry_bush": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.11,
+   0.89
+  ],
+  "item": "ars_nouveau:sourceberry_bush",
+  "temperature": [
+   13.2,
+   83.2
+  ],
+  "tree": false
+ }
+}

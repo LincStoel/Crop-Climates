@@ -1,0 +1,53 @@
+{
+ "bullet_pepper": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0,
+   0.3
+  ],
+  "item": "mynethersdelight:bullet_pepper",
+  "temperature": [
+   148,
+   168
+  ],
+  "tree": false
+ },
+ "crimson_fungus_colony": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0,
+   0.3
+  ],
+  "item": "mynethersdelight:crimson_fungus_colony",
+  "temperature": [
+   148,
+   168
+  ],
+  "tree": false
+ },
+ "powdery_cane": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0,
+   0.3
+  ],
+  "temperature": [
+   148,
+   168
+  ],
+  "tree": false
+ },
+ "warped_fungus_colony": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0,
+   0.3
+  ],
+  "item": "mynethersdelight:warped_fungus_colony",
+  "temperature": [
+   140,
+   160
+  ],
+  "tree": false
+ }
+}

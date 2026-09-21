@@ -1,0 +1,41 @@
+{
+ "flax": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.2,
+   0.7
+  ],
+  "item": "supplementaries:flax_seeds",
+  "temperature": [
+   45,
+   85
+  ],
+  "tree": false
+ },
+ "rope_tomatoes": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0,
+   0.8
+  ],
+  "item": "farmersdelight:tomato_seeds",
+  "temperature": [
+   65,
+   85
+  ],
+  "tree": false
+ },
+ "stick_tomatoes": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0,
+   0.8
+  ],
+  "item": "farmersdelight:tomato_seeds",
+  "temperature": [
+   65,
+   85
+  ],
+  "tree": false
+ }
+}

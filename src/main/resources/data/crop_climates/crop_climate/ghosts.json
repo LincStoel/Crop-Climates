@@ -1,0 +1,15 @@
+{
+ "haunted_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0.55,
+   1
+  ],
+  "item": "ghosts:haunted_sapling",
+  "temperature": [
+   49.5,
+   83.5
+  ],
+  "tree": true
+ }
+}

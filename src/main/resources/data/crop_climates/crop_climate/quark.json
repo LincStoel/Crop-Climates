@@ -1,0 +1,80 @@
+{
+ "ancient_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0.35,
+   0.9
+  ],
+  "item": "quark:ancient_sapling",
+  "temperature": [
+   42,
+   78
+  ],
+  "tree": true
+ },
+ "blue_blossom_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0.35,
+   0.85
+  ],
+  "item": "quark:blue_blossom_sapling",
+  "temperature": [
+   38,
+   72
+  ],
+  "tree": true
+ },
+ "lavender_blossom_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0.3,
+   0.8
+  ],
+  "item": "quark:lavender_blossom_sapling",
+  "temperature": [
+   45,
+   80
+  ],
+  "tree": true
+ },
+ "orange_blossom_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0.2,
+   0.65
+  ],
+  "item": "quark:orange_blossom_sapling",
+  "temperature": [
+   52,
+   88
+  ],
+  "tree": true
+ },
+ "red_blossom_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0.15,
+   0.6
+  ],
+  "item": "quark:red_blossom_sapling",
+  "temperature": [
+   55,
+   92
+  ],
+  "tree": true
+ },
+ "yellow_blossom_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0.2,
+   0.7
+  ],
+  "item": "quark:yellow_blossom_sapling",
+  "temperature": [
+   50,
+   88
+  ],
+  "tree": true
+ }
+}

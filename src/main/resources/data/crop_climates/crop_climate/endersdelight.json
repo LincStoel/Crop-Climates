@@ -1,0 +1,28 @@
+{
+ "chorusflame_bush": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0,
+   0.3
+  ],
+  "item": "endersdelight:chorusflame",
+  "temperature": [
+   29.8,
+   68
+  ],
+  "tree": false
+ },
+ "voidpepper_bush": {
+  "hook": "randomTick",
+  "humidity": [
+   0,
+   0.3
+  ],
+  "item": "endersdelight:voidpepper",
+  "temperature": [
+   34.2,
+   61.2
+  ],
+  "tree": false
+ }
+}

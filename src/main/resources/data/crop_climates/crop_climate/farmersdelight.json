@@ -1,0 +1,119 @@
+{
+ "brown_mushroom_colony": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.7,
+   1
+  ],
+  "item": "farmersdelight:brown_mushroom_colony",
+  "temperature": [
+   61,
+   84
+  ],
+  "tree": false
+ },
+ "budding_tomatoes": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0,
+   0.8
+  ],
+  "item": "farmersdelight:tomato_seeds",
+  "temperature": [
+   65,
+   85
+  ],
+  "tree": false
+ },
+ "cabbages": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.304,
+   0.661
+  ],
+  "item": "farmersdelight:cabbage_seeds",
+  "temperature": [
+   36.5,
+   87.8
+  ],
+  "tree": false
+ },
+ "onions": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.1,
+   0.9
+  ],
+  "item": "farmersdelight:onion",
+  "temperature": [
+   50,
+   80
+  ],
+  "tree": false
+ },
+ "red_mushroom_colony": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.7,
+   1
+  ],
+  "item": "farmersdelight:red_mushroom_colony",
+  "temperature": [
+   61,
+   84
+  ],
+  "tree": false
+ },
+ "rice": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.7,
+   1
+  ],
+  "item": "farmersdelight:rice",
+  "temperature": [
+   31.2,
+   97.7
+  ],
+  "tree": false
+ },
+ "rice_panicles": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.7,
+   1
+  ],
+  "item": "farmersdelight:rice",
+  "temperature": [
+   31.2,
+   97.7
+  ],
+  "tree": false
+ },
+ "tomatoes": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0,
+   0.8
+  ],
+  "item": "farmersdelight:tomato_seeds",
+  "temperature": [
+   65,
+   85
+  ],
+  "tree": false
+ },
+ "tomatoes_on_rope": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0,
+   0.8
+  ],
+  "item": "farmersdelight:tomato_seeds",
+  "temperature": [
+   65,
+   85
+  ],
+  "tree": false
+ }
+}

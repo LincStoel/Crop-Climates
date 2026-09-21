@@ -1,0 +1,15 @@
+{
+ "wither_crop_block": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.2,
+   0.85
+  ],
+  "item": "oritech:wither_crop_block",
+  "temperature": [
+   45,
+   90
+  ],
+  "tree": false
+ }
+}

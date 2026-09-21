@@ -1,0 +1,15 @@
+{
+ "corn_crop": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.1,
+   0.9
+  ],
+  "item": "corn_delight:corn_seeds",
+  "temperature": [
+   26.3,
+   96.3
+  ],
+  "tree": false
+ }
+}

@@ -1,0 +1,236 @@
+{
+ "apple_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0.55,
+   1
+  ],
+  "item": "fruitsdelight:apple_sapling",
+  "temperature": [
+   46.5,
+   80.5
+  ],
+  "tree": true
+ },
+ "bayberry_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0.55,
+   1
+  ],
+  "item": "fruitsdelight:bayberry_sapling",
+  "temperature": [
+   53,
+   87
+  ],
+  "tree": true
+ },
+ "blueberry_bush": {
+  "hook": "randomTick",
+  "humidity": [
+   0.3,
+   0.9
+  ],
+  "item": "fruitsdelight:blueberry",
+  "temperature": [
+   10,
+   84
+  ],
+  "tree": false
+ },
+ "cranberry_bush": {
+  "hook": "randomTick",
+  "humidity": [
+   0.7,
+   1
+  ],
+  "item": "fruitsdelight:cranberry",
+  "temperature": [
+   53,
+   87
+  ],
+  "tree": false
+ },
+ "durian_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0.55,
+   1
+  ],
+  "item": "fruitsdelight:durian_sapling",
+  "temperature": [
+   54.5,
+   88.5
+  ],
+  "tree": true
+ },
+ "fig_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0.55,
+   1
+  ],
+  "item": "fruitsdelight:fig_sapling",
+  "temperature": [
+   46.5,
+   80.5
+  ],
+  "tree": true
+ },
+ "hamimelon_stem": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0,
+   0.3
+  ],
+  "item": "fruitsdelight:hamimelon_seeds",
+  "temperature": [
+   58,
+   94
+  ],
+  "tree": false
+ },
+ "hawberry_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0.55,
+   1
+  ],
+  "item": "fruitsdelight:hawberry_sapling",
+  "temperature": [
+   36,
+   70
+  ],
+  "tree": true
+ },
+ "kiwi_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0.55,
+   1
+  ],
+  "item": "fruitsdelight:kiwi_sapling",
+  "temperature": [
+   46.5,
+   80.5
+  ],
+  "tree": true
+ },
+ "lemon_tree": {
+  "hook": "randomTick",
+  "humidity": [
+   0.25,
+   0.55
+  ],
+  "item": "fruitsdelight:lemon_seeds",
+  "temperature": [
+   59,
+   82
+  ],
+  "tree": false
+ },
+ "lychee_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0.55,
+   1
+  ],
+  "item": "fruitsdelight:lychee_sapling",
+  "temperature": [
+   64.5,
+   98.5
+  ],
+  "tree": true
+ },
+ "mango_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0.55,
+   1
+  ],
+  "item": "fruitsdelight:mango_sapling",
+  "temperature": [
+   64.5,
+   98.5
+  ],
+  "tree": true
+ },
+ "mangosteen_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0.55,
+   1
+  ],
+  "item": "fruitsdelight:mangosteen_sapling",
+  "temperature": [
+   54.5,
+   88.5
+  ],
+  "tree": true
+ },
+ "orange_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0.55,
+   1
+  ],
+  "item": "fruitsdelight:orange_sapling",
+  "temperature": [
+   46.5,
+   80.5
+  ],
+  "tree": true
+ },
+ "peach_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0.55,
+   1
+  ],
+  "item": "fruitsdelight:peach_sapling",
+  "temperature": [
+   57.5,
+   91.5
+  ],
+  "tree": true
+ },
+ "pear_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0.375,
+   0.825
+  ],
+  "item": "fruitsdelight:pear_sapling",
+  "temperature": [
+   45,
+   79
+  ],
+  "tree": true
+ },
+ "persimmon_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0.375,
+   0.825
+  ],
+  "item": "fruitsdelight:persimmon_sapling",
+  "temperature": [
+   10,
+   48
+  ],
+  "tree": true
+ },
+ "pineapple": {
+  "hook": "randomTick",
+  "humidity": [
+   0.25,
+   0.55
+  ],
+  "item": "fruitsdelight:pineapple_sapling",
+  "temperature": [
+   52,
+   84
+  ],
+  "tree": false
+ }
+}

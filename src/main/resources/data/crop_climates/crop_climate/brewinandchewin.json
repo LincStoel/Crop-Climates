@@ -1,0 +1,28 @@
+{
+ "unripe_flaxen_cheese_wheel": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.2,
+   0.85
+  ],
+  "item": "brewinandchewin:unripe_flaxen_cheese_wheel",
+  "temperature": [
+   45,
+   90
+  ],
+  "tree": false
+ },
+ "unripe_scarlet_cheese_wheel": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.2,
+   0.85
+  ],
+  "item": "brewinandchewin:unripe_scarlet_cheese_wheel",
+  "temperature": [
+   45,
+   90
+  ],
+  "tree": false
+ }
+}

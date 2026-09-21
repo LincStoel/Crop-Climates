@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " G ",
+    "GSG",
+    " C "
+  ],
+  "key": {
+    "G": { "item": "minecraft:glass_pane" },
+    "S": { "tag": "crop_climates:seeds" },
+    "C": { "item": "minecraft:copper_ingot" }
+  },
+  "result": {
+    "id": "crop_climates:soil_tester",
+    "count": 1
+  }
+}

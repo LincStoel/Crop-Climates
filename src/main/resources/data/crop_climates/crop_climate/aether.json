@@ -1,0 +1,54 @@
+{
+ "berry_bush": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.416,
+   0.884
+  ],
+  "item": "aether:berry_bush",
+  "temperature": [
+   35.8,
+   89.7
+  ],
+  "tree": false
+ },
+ "berry_bush_stem": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.63,
+   0.97
+  ],
+  "item": "aether:berry_bush_stem",
+  "temperature": [
+   37,
+   72
+  ],
+  "tree": false
+ },
+ "golden_oak_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0.425,
+   0.875
+  ],
+  "item": "aether:golden_oak_sapling",
+  "temperature": [
+   41,
+   76
+  ],
+  "tree": true
+ },
+ "skyroot_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0.55,
+   1
+  ],
+  "item": "aether:skyroot_sapling",
+  "temperature": [
+   49.5,
+   84.5
+  ],
+  "tree": true
+ }
+}

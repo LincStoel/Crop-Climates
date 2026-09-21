@@ -1,0 +1,15 @@
+{
+ "withered_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0,
+   0.45
+  ],
+  "item": "luminous_nether:withered_sapling",
+  "temperature": [
+   53.2,
+   88.2
+  ],
+  "tree": true
+ }
+}

@@ -1,0 +1,28 @@
+{
+ "flashpine_pod": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.25,
+   0.75
+  ],
+  "item": "ars_elemental:flashpine_pod",
+  "temperature": [
+   40,
+   82
+  ],
+  "tree": false
+ },
+ "yellow_archwood_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0.25,
+   0.75
+  ],
+  "item": "ars_elemental:yellow_archwood_sapling",
+  "temperature": [
+   40,
+   82
+  ],
+  "tree": true
+ }
+}

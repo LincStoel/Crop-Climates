@@ -1,0 +1,80 @@
+{
+ "azalea_flower": {
+  "hook": "randomTick",
+  "humidity": [
+   0,
+   0.575
+  ],
+  "item": "ecologics:azalea_flower",
+  "temperature": [
+   31.3,
+   97.5
+  ],
+  "tree": true
+ },
+ "coconut_seedling": {
+  "hook": "randomTick",
+  "humidity": [
+   0.175,
+   0.625
+  ],
+  "item": "ecologics:coconut_seedling",
+  "temperature": [
+   51,
+   85
+  ],
+  "tree": true
+ },
+ "hanging_coconut": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.45,
+   0.95
+  ],
+  "item": "ecologics:coconut",
+  "temperature": [
+   68,
+   95
+  ],
+  "tree": false
+ },
+ "prickly_pear": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0,
+   0.3
+  ],
+  "item": "ecologics:prickly_pear",
+  "temperature": [
+   46.5,
+   116.5
+  ],
+  "tree": false
+ },
+ "thin_ice": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.35,
+   0.65
+  ],
+  "item": "ecologics:thin_ice",
+  "temperature": [
+   7,
+   34.1
+  ],
+  "tree": false
+ },
+ "walnut_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0.175,
+   0.625
+  ],
+  "item": "ecologics:walnut_sapling",
+  "temperature": [
+   53.5,
+   87.5
+  ],
+  "tree": true
+ }
+}

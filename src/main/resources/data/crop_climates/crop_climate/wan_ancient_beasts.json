@@ -1,0 +1,106 @@
+{
+ "amber_ginkgo_crop": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.35,
+   0.8
+  ],
+  "item": "wan_ancient_beasts:amber_ginkgo_seeds",
+  "temperature": [
+   42,
+   80
+  ],
+  "tree": false
+ },
+ "amber_ginkgo_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0.35,
+   0.8
+  ],
+  "item": "wan_ancient_beasts:amber_ginkgo_sapling",
+  "temperature": [
+   42,
+   80
+  ],
+  "tree": true
+ },
+ "bellflower_crop": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.4,
+   0.85
+  ],
+  "item": "wan_ancient_beasts:bellflower_seeds",
+  "temperature": [
+   40,
+   75
+  ],
+  "tree": false
+ },
+ "equisetum_crop": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.6,
+   1
+  ],
+  "item": "wan_ancient_beasts:equisetum_seeds",
+  "temperature": [
+   50,
+   85
+  ],
+  "tree": false
+ },
+ "rafflesia_crop": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.7,
+   1
+  ],
+  "item": "wan_ancient_beasts:rafflesia_seeds",
+  "temperature": [
+   70,
+   95
+  ],
+  "tree": false
+ },
+ "sundew_crop": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.65,
+   1
+  ],
+  "item": "wan_ancient_beasts:sundew_seeds",
+  "temperature": [
+   55,
+   85
+  ],
+  "tree": false
+ },
+ "verdant_ginkgo_crop": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.35,
+   0.8
+  ],
+  "item": "wan_ancient_beasts:verdant_ginkgo_seeds",
+  "temperature": [
+   42,
+   80
+  ],
+  "tree": false
+ },
+ "verdant_ginkgo_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0.35,
+   0.8
+  ],
+  "item": "wan_ancient_beasts:verdant_ginkgo_sapling",
+  "temperature": [
+   42,
+   80
+  ],
+  "tree": true
+ }
+}

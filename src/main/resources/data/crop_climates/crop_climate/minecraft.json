@@ -1,0 +1,393 @@
+{
+ "acacia_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0,
+   0.45
+  ],
+  "item": "minecraft:acacia_sapling",
+  "temperature": [
+   58,
+   100
+  ],
+  "tree": true
+ },
+ "azalea": {
+  "hook": "randomTick",
+  "humidity": [
+   0,
+   0.575
+  ],
+  "item": "minecraft:azalea",
+  "temperature": [
+   31.1,
+   99.1
+  ],
+  "tree": true
+ },
+ "bamboo": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.7,
+   1
+  ],
+  "item": "minecraft:bamboo",
+  "temperature": [
+   71,
+   91
+  ],
+  "tree": false
+ },
+ "bamboo_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0.55,
+   1
+  ],
+  "item": "minecraft:bamboo",
+  "temperature": [
+   64,
+   98
+  ],
+  "tree": true
+ },
+ "beetroots": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.304,
+   0.661
+  ],
+  "item": "minecraft:beetroot_seeds",
+  "temperature": [
+   45,
+   70
+  ],
+  "tree": false
+ },
+ "birch_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0.265,
+   0.87
+  ],
+  "item": "minecraft:birch_sapling",
+  "temperature": [
+   30.8,
+   85
+  ],
+  "tree": true
+ },
+ "cactus": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0,
+   0.3
+  ],
+  "item": "minecraft:cactus",
+  "temperature": [
+   56,
+   126
+  ],
+  "tree": false
+ },
+ "carrots": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.1,
+   0.9
+  ],
+  "item": "minecraft:carrot",
+  "temperature": [
+   55,
+   75
+  ],
+  "tree": false
+ },
+ "cave_vines": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.35,
+   1
+  ],
+  "item": "minecraft:glow_berries",
+  "temperature": [
+   45,
+   80
+  ],
+  "tree": false
+ },
+ "cherry_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0.425,
+   0.875
+  ],
+  "item": "minecraft:cherry_sapling",
+  "temperature": [
+   28.2,
+   80.9
+  ],
+  "tree": true
+ },
+ "chorus_flower": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0,
+   0.3
+  ],
+  "item": "minecraft:chorus_flower",
+  "temperature": [
+   30,
+   70
+  ],
+  "tree": false
+ },
+ "cocoa": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.7,
+   1
+  ],
+  "item": "minecraft:cocoa_beans",
+  "temperature": [
+   72,
+   92
+  ],
+  "tree": false
+ },
+ "dark_oak_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0.11,
+   0.89
+  ],
+  "item": "minecraft:dark_oak_sapling",
+  "temperature": [
+   13.9,
+   85
+  ],
+  "tree": true
+ },
+ "flowering_azalea": {
+  "hook": "randomTick",
+  "humidity": [
+   0,
+   0.575
+  ],
+  "item": "minecraft:flowering_azalea",
+  "temperature": [
+   31.2,
+   98.4
+  ],
+  "tree": true
+ },
+ "jungle_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0.296,
+   1
+  ],
+  "item": "minecraft:jungle_sapling",
+  "temperature": [
+   41.7,
+   94.9
+  ],
+  "tree": true
+ },
+ "kelp": {
+  "aquatic": true,
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.5,
+   1
+  ],
+  "item": "minecraft:kelp",
+  "temperature": [
+   30,
+   80
+  ],
+  "tree": false
+ },
+ "mangrove_propagule": {
+  "hook": "randomTick",
+  "humidity": [
+   0.55,
+   1
+  ],
+  "item": "minecraft:mangrove_propagule",
+  "temperature": [
+   61,
+   95
+  ],
+  "tree": true
+ },
+ "melon_stem": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.7,
+   1
+  ],
+  "item": "minecraft:melon_seeds",
+  "temperature": [
+   60,
+   100
+  ],
+  "tree": false
+ },
+ "nether_wart": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0,
+   0.3
+  ],
+  "item": "minecraft:nether_wart",
+  "temperature": [
+   105,
+   190
+  ],
+  "tree": false
+ },
+ "oak_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0,
+   1
+  ],
+  "item": "minecraft:oak_sapling",
+  "temperature": [
+   14.5,
+   104.5
+  ],
+  "tree": true
+ },
+ "pitcher_crop": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.45,
+   0.95
+  ],
+  "item": "minecraft:pitcher_pod",
+  "temperature": [
+   50,
+   80
+  ],
+  "tree": false
+ },
+ "potatoes": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.1,
+   0.9
+  ],
+  "item": "minecraft:potato",
+  "temperature": [
+   55,
+   75
+  ],
+  "tree": false
+ },
+ "pumpkin_stem": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.1,
+   0.9
+  ],
+  "item": "minecraft:pumpkin_seeds",
+  "temperature": [
+   65,
+   95
+  ],
+  "tree": false
+ },
+ "spruce_sapling": {
+  "hook": "randomTick",
+  "humidity": [
+   0.221,
+   1
+  ],
+  "item": "minecraft:spruce_sapling",
+  "temperature": [
+   7,
+   87
+  ],
+  "tree": true
+ },
+ "sugar_cane": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.35,
+   0.65
+  ],
+  "item": "minecraft:sugar_cane",
+  "temperature": [
+   59,
+   82
+  ],
+  "tree": false
+ },
+ "sweet_berry_bush": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.34,
+   0.86
+  ],
+  "item": "minecraft:sweet_berries",
+  "temperature": [
+   12.8,
+   75.2
+  ],
+  "tree": false
+ },
+ "torchflower_crop": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.15,
+   0.6
+  ],
+  "item": "minecraft:torchflower_seeds",
+  "temperature": [
+   55,
+   95
+  ],
+  "tree": false
+ },
+ "twisting_vines": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0,
+   0.3
+  ],
+  "item": "minecraft:twisting_vines",
+  "temperature": [
+   120,
+   200
+  ],
+  "tree": false
+ },
+ "weeping_vines": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0,
+   0.3
+  ],
+  "item": "minecraft:weeping_vines",
+  "temperature": [
+   120,
+   200
+  ],
+  "tree": false
+ },
+ "wheat": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0.25,
+   0.85
+  ],
+  "item": "minecraft:wheat_seeds",
+  "temperature": [
+   40,
+   90
+  ],
+  "tree": false
+ }
+}

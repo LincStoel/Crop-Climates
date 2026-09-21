@@ -1,0 +1,15 @@
+{
+ "soul_stalk": {
+  "hook": "CropGrowEvent",
+  "humidity": [
+   0,
+   0.3
+  ],
+  "item": "cold_sweat:soul_sprout",
+  "temperature": [
+   95,
+   150
+  ],
+  "tree": false
+ }
+}
