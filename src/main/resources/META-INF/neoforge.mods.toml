@@ -1,0 +1,43 @@
+modLoader = "javafml"
+loaderVersion = "[4,)"
+license = "MIT"
+
+[[mods]]
+modId = "crop_climates"
+version = "${file.jarVersion}"
+displayName = "Crop Climates"
+description = '''
+Climate-driven crop growth: every growable block has an ideal temperature and
+humidity band, and how well its position matches those bands scales its
+growth rate from 1.25x down to 0.01x. Temperature is read live from Cold
+Sweat, so hearths and iceboxes act as greenhouses - and so does any other
+sealed, hearth-air-holding room you build, which waives a crop's humidity
+requirement entirely. Aquatic crops score against water temperature and
+ignore humidity while submerged. Per-crop bands and compatibility data ship
+as datapacks that skip silently when the owning mod is absent - Cold Sweat
+is the only hard dependency.
+'''
+
+[[mixins]]
+config = "crop_climates.mixins.json"
+
+[[dependencies.crop_climates]]
+modId = "neoforge"
+type = "required"
+versionRange = "[21.1.181,)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.crop_climates]]
+modId = "minecraft"
+type = "required"
+versionRange = "[1.21.1,1.22)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.crop_climates]]
+modId = "cold_sweat"
+type = "required"
+versionRange = "[2.4.3,)"
+ordering = "NONE"
+side = "BOTH"
