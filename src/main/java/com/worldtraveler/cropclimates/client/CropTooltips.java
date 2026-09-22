@@ -21,6 +21,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -40,7 +41,7 @@ public final class CropTooltips {
     private static final long VERDICT_TTL_MS = 2000;
     private static final int MAX_REQUESTS_PER_SECOND = 4;
 
-    private record CachedVerdict(int verdict, long at) {
+    private record CachedVerdict(VerdictPayloads.Response response, long at) {
     }
 
     private static volatile Map<Item, ClimateSyncPayload.TipBand> BANDS = Map.of();
@@ -66,7 +67,7 @@ public final class CropTooltips {
     public static void handleVerdict(VerdictPayloads.Response response, IPayloadContext context) {
         context.enqueueWork(() -> BuiltInRegistries.ITEM.getOptional(response.item()).ifPresent(item -> {
             PENDING.remove(item);
-            VERDICTS.put(item, new CachedVerdict(response.verdict(), System.currentTimeMillis()));
+            VERDICTS.put(item, new CachedVerdict(response, System.currentTimeMillis()));
         }));
     }
 
@@ -113,10 +114,15 @@ public final class CropTooltips {
         if (cached == null) {
             return tip("here_checking").withStyle(ChatFormatting.DARK_GRAY);
         }
-        if (cached.verdict() == VerdictPayloads.UNKNOWN) {
+        VerdictPayloads.Response response = cached.response();
+        if (response.verdict() == VerdictPayloads.UNKNOWN) {
             return tip("here_unknown").withStyle(ChatFormatting.DARK_GRAY);
         }
-        return tip("here", Verdict.byId(cached.verdict()).wouldLabel()).withStyle(ChatFormatting.GRAY);
+        VerdictPayloads.Where[] places = VerdictPayloads.Where.values();
+        VerdictPayloads.Where where = places[Math.floorMod(response.where(), places.length)];
+        Component place = tip("where." + where.name().toLowerCase(Locale.ROOT), response.humidity() + "%")
+                .withStyle(where == VerdictPayloads.Where.GREENHOUSE ? ChatFormatting.GREEN : ChatFormatting.DARK_GRAY);
+        return tip("here", Verdict.byId(response.verdict()).wouldLabel(), place).withStyle(ChatFormatting.GRAY);
     }
 
     private static void request(Item item, long now) {

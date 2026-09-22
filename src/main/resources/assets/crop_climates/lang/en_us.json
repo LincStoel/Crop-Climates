@@ -9,7 +9,11 @@
   "tooltip.crop_climates.humidity": "  Humidity: %s",
   "tooltip.crop_climates.tree": "  Trees tolerate a wider spread.",
   "tooltip.crop_climates.aquatic": "  Ignores humidity while underwater.",
-  "tooltip.crop_climates.here": "  Here: %s",
+  "tooltip.crop_climates.here": "  Here: %s %s",
+  "tooltip.crop_climates.where.outdoor": "(outdoors, %s humidity)",
+  "tooltip.crop_climates.where.raining": "(outdoors in the rain, %s humidity)",
+  "tooltip.crop_climates.where.greenhouse": "(greenhouse, %s humidity)",
+  "tooltip.crop_climates.where.underwater": "(underwater)",
   "tooltip.crop_climates.here_checking": "  Here: checking...",
   "tooltip.crop_climates.here_unknown": "  Here: can't tell right now",
 

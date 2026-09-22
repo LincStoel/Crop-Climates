@@ -25,13 +25,18 @@ import java.util.concurrent.ConcurrentHashMap;
  * The Alt tooltip's "Here: would thrive" line. The client asks about one item;
  * the server scores that item's band at the player's feet through the same
  * {@link GrowthGovernor} path crops use - cached temperature, greenhouse
- * lookup - and answers with just the verdict tier. The client throttles and
- * caches; the server additionally caps each player's request rate.
+ * lookup - and answers with the verdict tier plus where the humidity came
+ * from ({@link Where}) and its value, so the player can see a greenhouse is
+ * being counted. The client throttles and caches; the server additionally
+ * caps each player's request rate.
  */
 public final class VerdictPayloads {
 
     /** Verdict id meaning "no answer right now" (no band, temperature unavailable, throttled). */
     public static final int UNKNOWN = -1;
+
+    /** Where the humidity behind a verdict came from. */
+    public enum Where { OUTDOOR, RAINING, GREENHOUSE, UNDERWATER }
 
     private static final int MAX_REQUESTS_PER_SECOND = 8;
     private static final Map<UUID, long[]> RATE = new ConcurrentHashMap<>();
@@ -51,12 +56,18 @@ public final class VerdictPayloads {
         }
     }
 
-    public record Response(ResourceLocation item, int verdict) implements CustomPacketPayload {
+    /**
+     * @param where    a {@link Where} ordinal (meaningless when {@code verdict} is {@link #UNKNOWN})
+     * @param humidity the humidity the band was scored against, in whole percent
+     */
+    public record Response(ResourceLocation item, int verdict, int where, int humidity) implements CustomPacketPayload {
         public static final Type<Response> TYPE =
                 new Type<>(ResourceLocation.fromNamespaceAndPath(CropClimates.MOD_ID, "verdict_response"));
         public static final StreamCodec<ByteBuf, Response> STREAM_CODEC = StreamCodec.composite(
                 ResourceLocation.STREAM_CODEC, Response::item,
                 ByteBufCodecs.VAR_INT, Response::verdict,
+                ByteBufCodecs.VAR_INT, Response::where,
+                ByteBufCodecs.VAR_INT, Response::humidity,
                 Response::new);
 
         @Override
@@ -70,7 +81,7 @@ public final class VerdictPayloads {
             if (!(context.player() instanceof ServerPlayer player) || !allow(player)) {
                 return;
             }
-            PacketDistributor.sendToPlayer(player, new Response(request.item(), verdictFor(player, request.item())));
+            PacketDistributor.sendToPlayer(player, verdictFor(player, request.item()));
         });
     }
 
@@ -84,19 +95,26 @@ public final class VerdictPayloads {
         return ++window[1] <= MAX_REQUESTS_PER_SECOND;
     }
 
-    private static int verdictFor(ServerPlayer player, ResourceLocation itemId) {
+    private static Response verdictFor(ServerPlayer player, ResourceLocation itemId) {
+        Response unknown = new Response(itemId, UNKNOWN, 0, 0);
         ClimateBand band = BuiltInRegistries.ITEM.getOptional(itemId).map(ClimateBands.itemBands()::get).orElse(null);
         if (band == null) {
-            return UNKNOWN;
+            return unknown;
         }
         BlockPos pos = player.blockPosition();
         GrowthGovernor.Conditions conditions = GrowthGovernor.resolve(player.level(), pos, band);
         if (conditions == null) {
-            return UNKNOWN;
+            return unknown;
         }
         boolean sapling = band.tree() && band.hook() == ClimateBand.Hook.RANDOM_TICK;
         double total = GrowthGovernor.score(band, conditions, sapling).total();
-        return Verdict.of(total, CropClimatesConfig.GROWTH_MAX.get()).ordinal();
+        Where where = switch (conditions.waiver()) {
+            case SUBMERGED -> Where.UNDERWATER;
+            case ENCLOSED -> Where.GREENHOUSE;
+            case NONE -> conditions.raining() ? Where.RAINING : Where.OUTDOOR;
+        };
+        return new Response(itemId, Verdict.of(total, CropClimatesConfig.GROWTH_MAX.get()).ordinal(),
+                where.ordinal(), (int) Math.round(conditions.humidity() * 100));
     }
 
     public static void forget(UUID player) {

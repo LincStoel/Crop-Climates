@@ -131,7 +131,7 @@ public final class CropClimates {
     }
 
     private void registerPayloads(RegisterPayloadHandlersEvent event) {
-        var registrar = event.registrar(MOD_ID).versioned("2");
+        var registrar = event.registrar(MOD_ID).versioned("3");
         // Lambdas, not method references: CropTooltips is client-only and must
         // not be loaded on a dedicated server just by registering its handlers.
         registrar.playToClient(ClimateSyncPayload.TYPE, ClimateSyncPayload.STREAM_CODEC,
