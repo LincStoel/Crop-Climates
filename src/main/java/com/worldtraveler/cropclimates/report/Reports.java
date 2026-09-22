@@ -126,7 +126,7 @@ public final class Reports {
             case GREENHOUSE -> report.row(ClimateReport.key("hygrometer.greenhouse").withStyle(ChatFormatting.GREEN));
             case OUTDOOR -> report.row(ClimateReport.key("hygrometer.outdoor").withStyle(ChatFormatting.YELLOW));
             case TOO_LARGE -> report.row(ClimateReport.key("hygrometer.too_large",
-                    ClimateReport.value(CropClimatesConfig.GREENHOUSE_MAX_VOLUME.get())).withStyle(ChatFormatting.YELLOW));
+                    ClimateReport.value(CropClimatesConfig.greenhouseMaxVolume())).withStyle(ChatFormatting.YELLOW));
             case SCANNING -> report.row(ClimateReport.key("hygrometer.scanning").withStyle(ChatFormatting.GRAY));
             case DISABLED -> report.row(ClimateReport.key("hygrometer.disabled").withStyle(ChatFormatting.GRAY));
         }
@@ -138,7 +138,7 @@ public final class Reports {
             report.row("hygrometer.base", ClimateReport.value(biomeId), ClimateReport.pct(room.baseHumidity(level)));
             report.divider();
             report.row("hygrometer.size", ClimateReport.value(room.size()),
-                    ClimateReport.value(CropClimatesConfig.GREENHOUSE_MAX_VOLUME.get()));
+                    ClimateReport.value(CropClimatesConfig.greenhouseMaxVolume()));
             report.row("hygrometer.sources",
                     ClimateReport.value(room.sourceCount(EnclosureHumidity.Effect.WATER)),
                     ClimateReport.value(room.sourceCount(EnclosureHumidity.Effect.HUMIDIFIER)),

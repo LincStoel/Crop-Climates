@@ -47,7 +47,7 @@ import java.util.UUID;
  * </ul>
  *
  * <p>There is no limit on the number of greenhouses; each is capped in size by
- * {@code greenhouseMaxVolume}. Only ever touched on the server thread.
+ * {@code greenhouseMaxRadius}/{@code greenhouseMaxHeight}. Only ever touched on the server thread.
  */
 public final class GreenhouseRegistry extends SavedData {
 
@@ -331,7 +331,7 @@ public final class GreenhouseRegistry extends SavedData {
             activeProbe = probe;
             activeInvalidated = false;
             activeScan = new RoomScan(probe.pos, cells, cells, new RoomScan.Limits(
-                    CropClimatesConfig.GREENHOUSE_MAX_VOLUME.get(), CropClimatesConfig.GREENHOUSE_MIN_VOLUME.get()));
+                    CropClimatesConfig.greenhouseMaxVolume(), CropClimatesConfig.GREENHOUSE_MIN_VOLUME.get()));
             return true;
         }
         return false;

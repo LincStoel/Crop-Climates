@@ -37,7 +37,8 @@ public final class CropClimatesConfig {
     public static final ModConfigSpec.IntValue ERROR_LIMIT;
 
     public static final ModConfigSpec.BooleanValue GREENHOUSE_ENABLED;
-    public static final ModConfigSpec.IntValue GREENHOUSE_MAX_VOLUME;
+    public static final ModConfigSpec.IntValue GREENHOUSE_MAX_RADIUS;
+    public static final ModConfigSpec.IntValue GREENHOUSE_MAX_HEIGHT;
     public static final ModConfigSpec.IntValue GREENHOUSE_MIN_VOLUME;
     public static final ModConfigSpec.IntValue GREENHOUSE_SKY_SCAN;
     public static final ModConfigSpec.IntValue GREENHOUSE_CELLS_PER_TICK;
@@ -59,7 +60,7 @@ public final class CropClimatesConfig {
         builder.push("growth");
         GROWTH_FLOOR = builder
                 .comment("Slowest a plant can ever grow (multiplier).")
-                .defineInRange("growthFloor", 0.01, 0.0, 10.0);
+                .defineInRange("growthFloor", 0.005, 0.0, 10.0);
         GROWTH_MAX = builder
                 .comment("Fastest a plant can ever grow, at the dead centre of both bands.")
                 .defineInRange("growthMax", 1.25, 0.0, 10.0);
@@ -74,10 +75,10 @@ public final class CropClimatesConfig {
                 .defineInRange("tempTolerance", 15.0, 0.01, 1000.0);
         MOIST_TOLERANCE = builder
                 .comment("Halving distance (0-1 scale) outside the humidity band.")
-                .defineInRange("moistTolerance", 0.15, 0.001, 1.0);
+                .defineInRange("moistTolerance", 0.10, 0.001, 1.0);
         TREE_FORGIVENESS = builder
                 .comment("Multiplies both tolerances above, saplings only.")
-                .defineInRange("treeForgiveness", 1.8, 1.0, 100.0);
+                .defineInRange("treeForgiveness", 1.3, 1.0, 100.0);
         builder.pop();
 
         builder.push("misc");
@@ -130,9 +131,14 @@ public final class CropClimatesConfig {
         GREENHOUSE_ENABLED = builder
                 .comment("Whether a Hygrometer in a sealed room turns it into a greenhouse whose humidity replaces the biome's.")
                 .define("greenhouseEnabled", true);
-        GREENHOUSE_MAX_VOLUME = builder
-                .comment("Largest greenhouse, in interior cells (air, water, crops - not walls). Bigger rooms read as too large.")
-                .defineInRange("greenhouseMaxVolume", 4096, 1, Integer.MAX_VALUE);
+        GREENHOUSE_MAX_RADIUS = builder
+                .comment("Together with greenhouseMaxHeight, sets the largest greenhouse: a room may hold at most " +
+                        "(2 * radius + 1)^2 * height interior cells (air, water, crops - not walls). Bigger rooms read as too large. " +
+                        "Only the cell count is capped; the room's shape is free.")
+                .defineInRange("greenhouseMaxRadius", 16, 1, 1024);
+        GREENHOUSE_MAX_HEIGHT = builder
+                .comment("See greenhouseMaxRadius.")
+                .defineInRange("greenhouseMaxHeight", 12, 1, 4096);
         GREENHOUSE_MIN_VOLUME = builder
                 .comment("Smallest sealed room, in interior cells, that counts as a greenhouse.")
                 .defineInRange("greenhouseMinVolume", 12, 1, Integer.MAX_VALUE);
@@ -179,6 +185,12 @@ public final class CropClimatesConfig {
         builder.pop();
 
         SPEC = builder.build();
+    }
+
+    /** Largest greenhouse in interior cells: {@code (2r + 1)^2 * h} from the radius and height settings. */
+    public static int greenhouseMaxVolume() {
+        long side = 2L * GREENHOUSE_MAX_RADIUS.get() + 1;
+        return (int) Math.min(Integer.MAX_VALUE, side * side * GREENHOUSE_MAX_HEIGHT.get());
     }
 
     private CropClimatesConfig() {
