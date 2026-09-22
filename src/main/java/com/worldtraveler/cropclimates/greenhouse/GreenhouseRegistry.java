@@ -222,6 +222,11 @@ public final class GreenhouseRegistry extends SavedData {
         if (!CropClimatesConfig.GREENHOUSE_ENABLED.get() || !WorldCells.isAvailable()) {
             return;
         }
+        if (now % GreenhouseParticles.INTERVAL == 0) {
+            for (Room room : rooms.values()) {
+                GreenhouseParticles.tick(level, room);
+            }
+        }
 
         int budget = CropClimatesConfig.GREENHOUSE_CELLS_PER_TICK.get();
         while (budget > 0) {

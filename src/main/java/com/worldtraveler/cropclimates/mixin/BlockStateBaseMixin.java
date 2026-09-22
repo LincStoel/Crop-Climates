@@ -43,7 +43,7 @@ public abstract class BlockStateBaseMixin {
 
         try {
             BlockState state = (BlockState) (Object) this;
-            GrowthGovernor.GrowthReading reading = GrowthGovernor.readForTick(level, pos, state);
+            GrowthGovernor.GrowthReading reading = GrowthGovernor.read(level, pos, state);
             if (reading == null) {
                 return;
             }

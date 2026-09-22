@@ -22,9 +22,11 @@ import java.util.WeakHashMap;
 
 /**
  * Draws the hygrometer the way {@code ItemFrameRenderer} draws its frame: a
- * standalone block model against the wall, plus a needle model rotated about
- * the dial's centre. The needle sweeps 120 degrees, dry on the left and wet on
- * the right, and eases toward the synced humidity rather than snapping.
+ * standalone block model against the wall - a 1px copper plate whose dial face
+ * is recessed half a pixel inside its rim - plus a needle model, sitting in
+ * that recess, rotated about the dial's centre. The needle sweeps 120
+ * degrees, dry on the left and wet on the right, and eases toward the synced
+ * humidity rather than snapping.
  */
 public class HygrometerRenderer extends EntityRenderer<HygrometerEntity> {
 
@@ -33,8 +35,9 @@ public class HygrometerRenderer extends EntityRenderer<HygrometerEntity> {
     public static final ModelResourceLocation NEEDLE_MODEL = ModelResourceLocation.standalone(
             ResourceLocation.fromNamespaceAndPath(CropClimates.MOD_ID, "entity/hygrometer_needle"));
 
-    /** Dial centre in model space (block pixels / 16). */
-    private static final float PIVOT = 7.625F / 16.0F;
+    /** Dial centre (the pin on the face texture) in model space, block pixels / 16. */
+    private static final float PIVOT_X = 8.0F / 16.0F;
+    private static final float PIVOT_Y = 7.625F / 16.0F;
     private static final float SWEEP_DEGREES = 120.0F;
 
     private final BlockRenderDispatcher blockRenderer;
@@ -66,9 +69,9 @@ public class HygrometerRenderer extends EntityRenderer<HygrometerEntity> {
         angle += (target - angle) * 0.1F;
         shownAngle.put(entity, angle);
 
-        poseStack.translate(PIVOT, PIVOT, 0.0F);
+        poseStack.translate(PIVOT_X, PIVOT_Y, 0.0F);
         poseStack.mulPose(Axis.ZP.rotationDegrees(angle));
-        poseStack.translate(-PIVOT, -PIVOT, 0.0F);
+        poseStack.translate(-PIVOT_X, -PIVOT_Y, 0.0F);
         renderModel(poseStack, buffer, models.getModel(NEEDLE_MODEL), packedLight);
         poseStack.popPose();
     }

@@ -39,10 +39,13 @@ public final class CropClimatesJadePlugin implements IWailaPlugin {
     static final ResourceLocation CROP_VERDICT = ResourceLocation.fromNamespaceAndPath(CropClimates.MOD_ID, "crop_verdict");
     static final ResourceLocation HYGROMETER = ResourceLocation.fromNamespaceAndPath(CropClimates.MOD_ID, "hygrometer");
     private static final String VERDICT_KEY = "crop_climates_verdict";
+    private static final String HUMIDITY_KEY = "crop_climates_humidity";
+    private static final String STATUS_KEY = "crop_climates_status";
 
     @Override
     public void register(IWailaCommonRegistration registration) {
         registration.registerBlockDataProvider(CropVerdict.INSTANCE, Block.class);
+        registration.registerEntityDataProvider(Hygrometer.INSTANCE, HygrometerEntity.class);
     }
 
     @Override
@@ -77,19 +80,35 @@ public final class CropClimatesJadePlugin implements IWailaPlugin {
         }
     }
 
-    enum Hygrometer implements IEntityComponentProvider {
+    /**
+     * The server sends the hygrometer's current reading with the Jade request,
+     * so the tooltip is right even before the entity's own synced values
+     * refresh; the synced values are the fallback.
+     */
+    enum Hygrometer implements IEntityComponentProvider, IServerDataProvider<EntityAccessor> {
         INSTANCE;
+
+        @Override
+        public void appendServerData(CompoundTag data, EntityAccessor accessor) {
+            if (accessor.getEntity() instanceof HygrometerEntity hygrometer) {
+                data.putFloat(HUMIDITY_KEY, hygrometer.humidity());
+                data.putInt(STATUS_KEY, hygrometer.status().ordinal());
+            }
+        }
 
         @Override
         public void appendTooltip(ITooltip tooltip, EntityAccessor accessor, IPluginConfig config) {
             if (!(accessor.getEntity() instanceof HygrometerEntity hygrometer)) {
                 return;
             }
-            GreenhouseStatus status = hygrometer.status();
+            CompoundTag data = accessor.getServerData();
+            boolean fromServer = data.contains(HUMIDITY_KEY);
+            float humidity = fromServer ? data.getFloat(HUMIDITY_KEY) : hygrometer.humidity();
+            GreenhouseStatus status = fromServer ? GreenhouseStatus.byId(data.getInt(STATUS_KEY)) : hygrometer.status();
             Component where = status == GreenhouseStatus.GREENHOUSE
                     ? Component.translatable("jade.crop_climates.greenhouse").withStyle(ChatFormatting.GREEN)
                     : Component.translatable("jade.crop_climates.outdoor").withStyle(ChatFormatting.GRAY);
-            tooltip.add(Component.translatable("jade.crop_climates.humidity", ClimateReport.pct(hygrometer.humidity()), where)
+            tooltip.add(Component.translatable("jade.crop_climates.humidity", ClimateReport.pct(humidity), where)
                     .withStyle(ChatFormatting.GRAY));
         }
 

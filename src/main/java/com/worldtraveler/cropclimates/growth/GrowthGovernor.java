@@ -128,14 +128,4 @@ public final class GrowthGovernor {
         }
         return score(band, conditions, ClimateBands.isSapling(state.getBlock()));
     }
-
-    /** {@link #read} for a real growth tick: also drives the greenhouse's cosmetic particles. */
-    @Nullable
-    public static GrowthReading readForTick(Level level, BlockPos pos, BlockState state) {
-        GrowthReading reading = read(level, pos, state);
-        if (reading != null && reading.waiver() == HumidityWaiver.ENCLOSED) {
-            GreenhouseParticles.maybeSpawn(level, pos, reading.conditions().humidity());
-        }
-        return reading;
-    }
 }

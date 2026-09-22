@@ -61,7 +61,7 @@ public final class CropGrowHandlers {
             }
             ServerLevel level = (ServerLevel) event.getLevel();
             BlockPos pos = event.getPos();
-            GrowthGovernor.GrowthReading reading = GrowthGovernor.readForTick(level, pos, event.getState());
+            GrowthGovernor.GrowthReading reading = GrowthGovernor.read(level, pos, event.getState());
             if (reading == null || reading.total() >= 1.0) {
                 return;
             }

@@ -16,9 +16,9 @@ import java.util.ArrayDeque;
  * is enqueued and self-seals on its own pass. A visited cell that let the fill
  * continue to at least one neighbour is <em>interior</em> - air, water, and
  * anything air passes through, such as crops - and only interior cells count
- * toward {@link Limits#maxInterior} and get indexed for crop lookups. Every
- * visited cell, walls included, is weighed for humidity (sponges are solid
- * walls) and counts toward the room size the weight is diluted by.
+ * toward {@link Limits#maxInterior}, get indexed for crop lookups, and are
+ * the room size humidity is diluted by. Every visited cell, walls included,
+ * is weighed for humidity, since sponges are solid wall blocks.
  *
  * <p>{@link #step} does at most {@code budget} cells per call, so a large room
  * is scanned over several ticks instead of in one spike.
@@ -173,7 +173,7 @@ public final class RoomScan {
         return interior;
     }
 
-    /** Every cell visited so far, walls included - the room size humidity is diluted by. */
+    /** Every cell visited so far, walls included. */
     public int visited() {
         return visited;
     }

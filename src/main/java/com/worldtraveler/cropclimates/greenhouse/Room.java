@@ -23,7 +23,8 @@ import java.util.UUID;
  *
  * <p>Humidity starts from the biome <em>at the anchor hygrometer</em>, even
  * when the room crosses a biome border, then shifts by the room's net source
- * weight diluted over its size. Rain never reaches it.
+ * weight diluted over its interior (air, water and plants - not the walls).
+ * Rain never reaches it.
  */
 public final class Room {
 
@@ -33,10 +34,11 @@ public final class Room {
     final Set<UUID> members = new LinkedHashSet<>();
     LongOpenHashSet interior = new LongOpenHashSet();
     int[] bounds = new int[6];
-    int volume;
     int netWeight;
     final int[] sourceCounts = new int[EnclosureHumidity.Effect.values().length];
     long lastScan;
+    /** {@link #interior} as an array, for picking random cells; rebuilt lazily after each scan. */
+    private long[] cellArray;
 
     Room(UUID id) {
         this.id = id;
@@ -46,8 +48,8 @@ public final class Room {
         this.anchor = anchor;
         this.anchorPos = scan.origin();
         this.interior = scan.interior();
+        this.cellArray = null;
         this.bounds = scan.bounds();
-        this.volume = scan.visited();
         this.netWeight = scan.tally().net();
         for (EnclosureHumidity.Effect effect : EnclosureHumidity.Effect.values()) {
             sourceCounts[effect.ordinal()] = scan.tally().count(effect);
@@ -61,8 +63,21 @@ public final class Room {
     }
 
     public double humidity(Level level) {
-        return EnclosureHumidity.compute(baseHumidity(level), netWeight, volume,
+        return EnclosureHumidity.compute(baseHumidity(level), netWeight, interior.size(),
                 CropClimatesConfig.HUMIDITY_BLOCK_MULTIPLIER.get());
+    }
+
+    /** A uniformly random interior cell, packed with {@link BlockPos#asLong}. */
+    public long randomCell(net.minecraft.util.RandomSource random) {
+        if (cellArray == null) {
+            cellArray = interior.toLongArray();
+        }
+        return cellArray[random.nextInt(cellArray.length)];
+    }
+
+    /** Whether a packed position is one of this room's interior cells. */
+    public boolean containsCell(long packed) {
+        return interior.contains(packed);
     }
 
     public BlockPos anchorPos() {
@@ -94,7 +109,6 @@ public final class Room {
         tag.put("Members", memberList);
         tag.put("Interior", new LongArrayTag(interior.toLongArray()));
         tag.putIntArray("Bounds", bounds);
-        tag.putInt("Volume", volume);
         tag.putInt("NetWeight", netWeight);
         tag.putIntArray("Sources", sourceCounts);
         tag.putLong("LastScan", lastScan);
@@ -111,7 +125,6 @@ public final class Room {
         room.interior = new LongOpenHashSet(tag.getLongArray("Interior"));
         int[] bounds = tag.getIntArray("Bounds");
         room.bounds = bounds.length == 6 ? bounds : new int[6];
-        room.volume = tag.getInt("Volume");
         room.netWeight = tag.getInt("NetWeight");
         int[] sources = tag.getIntArray("Sources");
         System.arraycopy(sources, 0, room.sourceCounts, 0, Math.min(sources.length, room.sourceCounts.length));

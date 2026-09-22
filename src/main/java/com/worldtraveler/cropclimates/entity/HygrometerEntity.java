@@ -58,7 +58,8 @@ public class HygrometerEntity extends HangingEntity {
     private static final int REFRESH_TICKS = 20;
     private static final int REPORT_COOLDOWN = 20;
 
-    private long lastReport = Long.MIN_VALUE;
+    /** Game time of the last right-click report; starts far enough back that the first click always reports. */
+    private long lastReport = -REPORT_COOLDOWN;
 
     public HygrometerEntity(EntityType<? extends HygrometerEntity> type, Level level) {
         super(type, level);
@@ -183,7 +184,7 @@ public class HygrometerEntity extends HangingEntity {
             return InteractionResult.SUCCESS;
         }
         long now = serverLevel.getGameTime();
-        if (now - lastReport < REPORT_COOLDOWN) {
+        if (now >= lastReport && now - lastReport < REPORT_COOLDOWN) {
             return InteractionResult.CONSUME;
         }
         lastReport = now;
