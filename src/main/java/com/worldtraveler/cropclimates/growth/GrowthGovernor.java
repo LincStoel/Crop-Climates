@@ -78,6 +78,9 @@ public final class GrowthGovernor {
                     effectiveMoisture = enclosure.humidity();
                     fitM = GrowthModel.fitEdge(effectiveMoisture, band.moistLo(), band.moistHi(),
                             CropClimatesConfig.MOIST_TOLERANCE.get() * give);
+                    if (!explain) {
+                        GreenhouseParticles.maybeSpawn(level, pos, effectiveMoisture);
+                    }
                 }
             }
         }

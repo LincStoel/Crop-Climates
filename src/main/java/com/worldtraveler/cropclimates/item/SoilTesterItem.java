@@ -87,6 +87,8 @@ public class SoilTesterItem extends Item {
         return InteractionResultHolder.success(player.getItemInHand(hand));
     }
 
+    private static final String BORDER = "§8" + "─".repeat(30);
+
     /** Returns whether the crop was in an enclosed (greenhouse) space. */
     private static boolean report(Level level, Player player, BlockPos pos) {
         var block = level.getBlockState(pos).getBlock();
@@ -96,67 +98,70 @@ public class SoilTesterItem extends Item {
         OptionalDouble tempF = ClimateSampler.temperatureF(level, pos);
         boolean seesSky = level.canSeeSky(pos);
 
-        tell(player, "§8§m                                        ");
+        tell(player, "§8┌─ §6Soil Tester " + BORDER);
 
         if (tempF.isEmpty()) {
-            tell(player, "§6Soil Tester §7- §f" + biomeId);
-            tell(player, "§7Temperature unavailable right now; try again in a moment.");
-            tell(player, "§7Can see the sky §f" + (seesSky ? "§aTrue" : "§cFalse"));
+            row(player, "§f" + biomeId);
+            row(player, "§7Temperature unavailable right now; try again in a moment.");
+            row(player, "§7Sky visible §f" + (seesSky ? "§aTrue" : "§cFalse"));
+            tell(player, "§8└" + BORDER);
             return false;
         }
 
-        tell(player, "§6Soil Tester");
-        tell(player, "§7Biome    §f" + biomeId);
-        tell(player, "§7Local    §f" + Math.round(tempF.getAsDouble()) + "°F§7, humidity §f" + pct(moisture));
-        tell(player, "§7Can see the sky §f" + (seesSky ? "§aTrue" : "§cFalse"));
+        row(player, "§f" + biomeId + "   §7Sky visible §f" + (seesSky ? "§aTrue" : "§cFalse"));
+        row(player, "§7Temp §f" + Math.round(tempF.getAsDouble()) + "°F   §7Humidity §f" + pct(moisture));
 
         ClimateBand band = ClimateBands.bandFor(block);
         if (band == null) {
+            tell(player, "§8└" + BORDER);
             return false;
         }
 
         GrowthGovernor.GrowthReading reading = GrowthGovernor.read(level, pos, level.getBlockState(pos), true);
         if (reading == null) {
+            tell(player, "§8└" + BORDER);
             return false;
         }
         double total = reading.total();
         boolean enclosed = reading.waiver() == GrowthGovernor.GrowthReading.HumidityWaiver.ENCLOSED;
+        boolean submerged = reading.waiver() == GrowthGovernor.GrowthReading.HumidityWaiver.SUBMERGED;
 
-        tell(player, "§7Plant    §f" + BuiltInRegistries.BLOCK.getKey(block));
-        tell(player, "§7  wants  §f" + num(band.tempLo()) + "–" + num(band.tempHi()) + "°F"
+        tell(player, "§8├" + BORDER);
+        row(player, "§f" + BuiltInRegistries.BLOCK.getKey(block));
+        row(player, "§7  wants §f" + num(band.tempLo()) + "–" + num(band.tempHi()) + "°F"
                 + (reading.waterTemp() ? " §8(water)" : "") + "   "
                 + axisMark(reading.tempF(), band.tempLo(), band.tempHi()));
 
-        if (CropClimatesConfig.GREENHOUSE_ENABLED.get()) {
-            tell(player, "§7Enclosed §f" + (enclosed
-                    ? "§aTrue §8[greenhouse, humidity " + pct(reading.effectiveMoisture()) + "]"
-                    : "§cFalse"));
+        if (submerged) {
+            row(player, "§a  Submerged");
+        } else {
+            String humidityMark = enclosed
+                    ? axisMark(reading.effectiveMoisture(), band.moistLo(), band.moistHi())
+                    : axisMark(moisture, band.moistLo(), band.moistHi());
+            row(player, "§7  wants §fhumidity " + pct(band.moistLo()) + "–" + pct(band.moistHi()) + "   " + humidityMark);
+
+            if (enclosed) {
+                row(player, "§aEnclosed in Greenhouse §8[humidity " + pct(reading.effectiveMoisture()) + "]");
+            }
         }
 
-        String humidityMark = switch (reading.waiver()) {
-            case SUBMERGED -> "§a[submerged]";
-            case ENCLOSED -> axisMark(reading.effectiveMoisture(), band.moistLo(), band.moistHi());
-            case NONE -> axisMark(moisture, band.moistLo(), band.moistHi());
-        };
-        tell(player, "§7  wants  §fhumidity " + pct(band.moistLo()) + "–" + pct(band.moistHi()) + "   " + humidityMark);
-
-        switch (reading.waiver()) {
-            case SUBMERGED -> tell(player, "§7  §aBeing underwater is satisfying the humidity requirement.");
-            case ENCLOSED -> tell(player, "§7  §aThe enclosed space's humidity is §f" + pct(reading.effectiveMoisture()) + "§a.");
-            case NONE -> { }
-        }
-
+        tell(player, "§8├" + BORDER);
         String[] verdict = verdict(total, CropClimatesConfig.GROWTH_MAX.get());
-        tell(player, "§7Growth   " + verdict[0] + String.format(Locale.ROOT, "%.2f", total)
+        row(player, "§7Growth §f" + verdict[0] + String.format(Locale.ROOT, "%.2f", total)
                 + "x §8[" + bar(total, CropClimatesConfig.GROWTH_MAX.get()) + "] " + verdict[0] + verdict[1]);
         if (total < 0.85) {
-            tell(player, "§8Consider adjusting the climate or soil conditions.");
+            row(player, "§8Consider adjusting the climate or soil conditions.");
         }
+        tell(player, "§8└" + BORDER);
         return enclosed;
     }
 
     private static void tell(Player player, String text) {
         player.displayClientMessage(Component.literal(text), false);
+    }
+
+    private static void row(Player player, String text) {
+        player.displayClientMessage(Component.literal("§8│ " + text), false);
     }
 
     private static String pct(double v) {

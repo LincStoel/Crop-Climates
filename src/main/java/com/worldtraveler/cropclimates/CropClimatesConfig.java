@@ -38,6 +38,11 @@ public final class CropClimatesConfig {
     public static final ModConfigSpec.IntValue GREENHOUSE_FILLS_PER_TICK;
     public static final ModConfigSpec.DoubleValue HUMIDITY_BLOCK_MULTIPLIER;
 
+    public static final ModConfigSpec.DoubleValue GREENHOUSE_DRIP_HUMIDITY;
+    public static final ModConfigSpec.DoubleValue GREENHOUSE_DRIP_CHANCE;
+    public static final ModConfigSpec.DoubleValue GREENHOUSE_DUST_HUMIDITY;
+    public static final ModConfigSpec.DoubleValue GREENHOUSE_DUST_CHANCE;
+
     public static final ModConfigSpec.BooleanValue AQUATIC_USES_WATER_TEMPERATURE;
 
     static {
@@ -124,6 +129,18 @@ public final class CropClimatesConfig {
                         "room size (walls included) and adding to biome humidity. Water/humidifier +1, " +
                         "desiccant -1, lava -3.")
                 .defineInRange("humidity_block_multiplier", 3.0, 0.0, 100.0);
+        GREENHOUSE_DRIP_HUMIDITY = builder
+                .comment("Effective humidity at/above which a sealed greenhouse occasionally drips water from its ceiling.")
+                .defineInRange("greenhouseDripHumidity", 0.9, 0.0, 1.0);
+        GREENHOUSE_DRIP_CHANCE = builder
+                .comment("Chance per governed random tick, per crop, of spawning one drip particle while above the drip humidity.")
+                .defineInRange("greenhouseDripChance", 0.025, 0.0, 1.0);
+        GREENHOUSE_DUST_HUMIDITY = builder
+                .comment("Effective humidity at/below which a sealed greenhouse infrequently puffs dust from its ceiling.")
+                .defineInRange("greenhouseDustHumidity", 0.1, 0.0, 1.0);
+        GREENHOUSE_DUST_CHANCE = builder
+                .comment("Chance per governed random tick, per crop, of spawning one dust particle while below the dust humidity.")
+                .defineInRange("greenhouseDustChance", 0.01, 0.0, 1.0);
         builder.pop();
 
         builder.push("aquatic");
