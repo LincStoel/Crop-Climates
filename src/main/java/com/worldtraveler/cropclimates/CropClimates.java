@@ -20,6 +20,7 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.AddReloadListenerEvent;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.event.OnDatapackSyncEvent;
+import net.neoforged.neoforge.event.TagsUpdatedEvent;
 import net.neoforged.neoforge.event.level.block.CropGrowEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -51,6 +52,7 @@ public final class CropClimates {
         NeoForge.EVENT_BUS.addListener(CropGrowEvent.Post.class, CropGrowHandlers::onPost);
         NeoForge.EVENT_BUS.addListener(OnDatapackSyncEvent.class, this::onDatapackSync);
         NeoForge.EVENT_BUS.addListener(ServerStoppedEvent.class, event -> clearCaches());
+        NeoForge.EVENT_BUS.addListener(TagsUpdatedEvent.class, this::onTagsUpdated);
     }
 
     /**
@@ -60,6 +62,17 @@ public final class CropClimates {
     private static void clearCaches() {
         ClimateSampler.clear();
         EnclosureSampler.clear();
+    }
+
+    /**
+     * Server tags are bound now (and this runs before {@code OnDatapackSyncEvent}),
+     * so tag-keyed crop entries and tag-based moisture overrides can resolve.
+     */
+    private void onTagsUpdated(TagsUpdatedEvent event) {
+        if (event.getUpdateCause() == TagsUpdatedEvent.UpdateCause.SERVER_DATA_LOAD) {
+            ClimateBands.resolve();
+            BiomeMoisture.invalidate();
+        }
     }
 
     private void registerPayloads(RegisterPayloadHandlersEvent event) {
