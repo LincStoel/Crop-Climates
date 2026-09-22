@@ -1,0 +1,118 @@
+package com.worldtraveler.cropclimates.greenhouse;
+
+import com.momosoftworks.coldsweat.api.registry.SpreadRuleRegistry;
+import com.momosoftworks.coldsweat.api.spread_rule.SpreadContext;
+import com.momosoftworks.coldsweat.api.spread_rule.SpreadRule;
+import com.momosoftworks.coldsweat.util.world.WorldHelper;
+import com.mojang.logging.LogUtils;
+import com.worldtraveler.cropclimates.CropClimatesConfig;
+import com.worldtraveler.cropclimates.CropClimatesTags;
+import com.worldtraveler.cropclimates.climate.EnclosureHumidity;
+import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.FluidTags;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.FluidState;
+import org.slf4j.Logger;
+
+/**
+ * World-backed {@link RoomScan.Steps}/{@link RoomScan.Cells} for one scan.
+ * The only place greenhouse code calls Cold Sweat: its hearth spread rules
+ * decide where air can go, and its sky test decides what counts as a leak -
+ * so a room that holds hearth air is exactly a room that can be a greenhouse.
+ * If Cold Sweat ever throws here, greenhouses disable themselves for the
+ * session, logged once.
+ */
+final class WorldCells implements RoomScan.Steps, RoomScan.Cells {
+
+    private static final Logger LOGGER = LogUtils.getLogger();
+    private static volatile boolean available = true;
+
+    private final ServerLevel level;
+    private final int skyScan;
+    /** Column -> (y << 1 | result) of the last sky test in that column this scan. */
+    private final Long2LongOpenHashMap skyCache = new Long2LongOpenHashMap();
+
+    WorldCells(ServerLevel level) {
+        this.level = level;
+        this.skyScan = CropClimatesConfig.GREENHOUSE_SKY_SCAN.get();
+        skyCache.defaultReturnValue(Long.MIN_VALUE);
+    }
+
+    static boolean isAvailable() {
+        return available;
+    }
+
+    static void fail(RuntimeException ex) {
+        if (available) {
+            available = false;
+            LOGGER.warn("crop_climates: Cold Sweat spread rule lookup failed, greenhouses disabled for this session", ex);
+        }
+    }
+
+    @Override
+    public boolean isLoaded(BlockPos pos) {
+        return level.isLoaded(pos);
+    }
+
+    @Override
+    public boolean isOpen(BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        return state.isAir() || !state.getFluidState().isEmpty();
+    }
+
+    @Override
+    public boolean seesSky(BlockPos pos) {
+        long column = BlockPos.asLong(pos.getX(), 0, pos.getZ());
+        long cached = skyCache.get(column);
+        if (cached != Long.MIN_VALUE) {
+            int y = (int) (cached >> 1);
+            boolean result = (cached & 1L) != 0;
+            // Seeing sky from y means seeing it from anything above; being
+            // blocked at y means being blocked below it too.
+            if (result && pos.getY() >= y) {
+                return true;
+            }
+            if (!result && pos.getY() <= y) {
+                return false;
+            }
+        }
+        boolean result = WorldHelper.canSeeSky(level, pos, skyScan);
+        skyCache.put(column, ((long) pos.getY() << 1) | (result ? 1L : 0L));
+        return result;
+    }
+
+    /**
+     * Water/humidifier raise humidity, lava/desiccant lower it. A cell only
+     * matches one case; a waterlogged desiccant or humidifier scores as water
+     * since the fluid check runs first.
+     */
+    @Override
+    public EnclosureHumidity.Effect effect(BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        FluidState fluid = state.getFluidState();
+        if (fluid.is(FluidTags.WATER)) {
+            return EnclosureHumidity.Effect.WATER;
+        }
+        if (fluid.is(FluidTags.LAVA)) {
+            return EnclosureHumidity.Effect.LAVA;
+        }
+        if (state.is(CropClimatesTags.DESICCANT)) {
+            return EnclosureHumidity.Effect.DESICCANT;
+        }
+        if (state.is(CropClimatesTags.HUMIDIFIER)) {
+            return EnclosureHumidity.Effect.HUMIDIFIER;
+        }
+        return EnclosureHumidity.Effect.NONE;
+    }
+
+    @Override
+    public boolean canStep(BlockPos from, Direction inDir, BlockPos to, Direction outDir) {
+        BlockState fromState = level.getBlockState(from);
+        BlockState toState = level.getBlockState(to);
+        SpreadRule rule = SpreadRuleRegistry.get(fromState);
+        return rule.canSpreadTo(new SpreadContext(level, from, fromState, to, toState, inDir, outDir));
+    }
+}

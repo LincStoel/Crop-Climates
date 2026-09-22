@@ -1,0 +1,15 @@
+{
+  "textures": {
+    "needle": "crop_climates:block/hygrometer_needle",
+    "particle": "crop_climates:block/hygrometer_needle"
+  },
+  "elements": [
+    {
+      "from": [7.25, 7.625, 14.9],
+      "to": [8.0, 11.25, 14.9],
+      "faces": {
+        "north": { "uv": [0, 0, 16, 16], "texture": "#needle" }
+      }
+    }
+  ]
+}

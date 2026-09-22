@@ -1,0 +1,15 @@
+{
+  "textures": {
+    "face": "crop_climates:block/hygrometer_face",
+    "particle": "crop_climates:block/hygrometer_face"
+  },
+  "elements": [
+    {
+      "from": [2, 2, 15],
+      "to": [14, 14, 16],
+      "faces": {
+        "north": { "uv": [0, 0, 16, 16], "texture": "#face" }
+      }
+    }
+  ]
+}

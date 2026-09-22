@@ -41,6 +41,14 @@ public final class CropGrowHandlers {
         return forcing;
     }
 
+    public static int errorCount() {
+        return errors.get();
+    }
+
+    public static boolean isSpeedupAvailable() {
+        return speedupOk;
+    }
+
     public static void onPre(CropGrowEvent.Pre event) {
         if (disabled) {
             return;
@@ -53,12 +61,13 @@ public final class CropGrowHandlers {
             }
             ServerLevel level = (ServerLevel) event.getLevel();
             BlockPos pos = event.getPos();
-            GrowthGovernor.GrowthReading reading = GrowthGovernor.read(level, pos, event.getState(), false);
+            GrowthGovernor.GrowthReading reading = GrowthGovernor.readForTick(level, pos, event.getState());
             if (reading == null || reading.total() >= 1.0) {
                 return;
             }
             if (level.getRandom().nextDouble() >= reading.total()) {
                 event.setResult(CropGrowEvent.Pre.Result.DO_NOT_GROW);
+                Regression.consider(level, pos, event.getState(), reading);
             }
         } catch (RuntimeException ex) {
             fail("CropGrowEvent.Pre", ex);
@@ -72,7 +81,7 @@ public final class CropGrowHandlers {
         try {
             ServerLevel level = (ServerLevel) event.getLevel();
             BlockPos pos = event.getPos();
-            GrowthGovernor.GrowthReading reading = GrowthGovernor.read(level, pos, event.getState(), false);
+            GrowthGovernor.GrowthReading reading = GrowthGovernor.read(level, pos, event.getState());
             if (reading == null || reading.total() <= 1.0) {
                 return;
             }

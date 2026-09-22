@@ -3,6 +3,7 @@ package com.worldtraveler.cropclimates.mixin;
 import com.worldtraveler.cropclimates.climate.ClimateBands;
 import com.worldtraveler.cropclimates.growth.CropGrowHandlers;
 import com.worldtraveler.cropclimates.growth.GrowthGovernor;
+import com.worldtraveler.cropclimates.growth.Regression;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
@@ -42,7 +43,7 @@ public abstract class BlockStateBaseMixin {
 
         try {
             BlockState state = (BlockState) (Object) this;
-            GrowthGovernor.GrowthReading reading = GrowthGovernor.read(level, pos, state, false);
+            GrowthGovernor.GrowthReading reading = GrowthGovernor.readForTick(level, pos, state);
             if (reading == null) {
                 return;
             }
@@ -51,6 +52,7 @@ public abstract class BlockStateBaseMixin {
             if (total < 1.0) {
                 if (random.nextDouble() >= total) {
                     ci.cancel();
+                    Regression.consider(level, pos, state, reading);
                 }
                 return;
             }

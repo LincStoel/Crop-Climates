@@ -9,6 +9,8 @@ import net.neoforged.neoforge.common.ModConfigSpec;
  */
 public final class CropClimatesConfig {
 
+    public enum Units { F, C }
+
     public static final ModConfigSpec SPEC;
 
     public static final ModConfigSpec.DoubleValue GROWTH_FLOOR;
@@ -21,6 +23,13 @@ public final class CropClimatesConfig {
 
     public static final ModConfigSpec.DoubleValue SKY_PENALTY;
     public static final ModConfigSpec.DoubleValue DEFAULT_BIOME_MOISTURE;
+    public static final ModConfigSpec.EnumValue<Units> DISPLAY_UNITS;
+
+    public static final ModConfigSpec.DoubleValue RAIN_HUMIDITY_SHIFT;
+
+    public static final ModConfigSpec.BooleanValue REGRESSION_ENABLED;
+    public static final ModConfigSpec.DoubleValue REGRESSION_FIT_THRESHOLD;
+    public static final ModConfigSpec.DoubleValue REGRESSION_CHANCE;
 
     public static final ModConfigSpec.IntValue TEMP_CACHE_TTL;
     public static final ModConfigSpec.IntValue TEMP_CACHE_CAP;
@@ -30,12 +39,11 @@ public final class CropClimatesConfig {
     public static final ModConfigSpec.BooleanValue GREENHOUSE_ENABLED;
     public static final ModConfigSpec.IntValue GREENHOUSE_MAX_VOLUME;
     public static final ModConfigSpec.IntValue GREENHOUSE_MIN_VOLUME;
-    public static final ModConfigSpec.IntValue GREENHOUSE_MAX_RADIUS;
-    public static final ModConfigSpec.IntValue GREENHOUSE_MAX_HEIGHT;
     public static final ModConfigSpec.IntValue GREENHOUSE_SKY_SCAN;
-    public static final ModConfigSpec.IntValue GREENHOUSE_CACHE_TTL;
-    public static final ModConfigSpec.IntValue GREENHOUSE_CACHE_CAP;
-    public static final ModConfigSpec.IntValue GREENHOUSE_FILLS_PER_TICK;
+    public static final ModConfigSpec.IntValue GREENHOUSE_CELLS_PER_TICK;
+    public static final ModConfigSpec.IntValue GREENHOUSE_RESCAN_INTERVAL;
+    public static final ModConfigSpec.IntValue GREENHOUSE_UNSEALED_RETRY_INTERVAL;
+    public static final ModConfigSpec.IntValue GREENHOUSE_CHANGE_DELAY;
     public static final ModConfigSpec.DoubleValue HUMIDITY_BLOCK_MULTIPLIER;
 
     public static final ModConfigSpec.DoubleValue GREENHOUSE_DRIP_HUMIDITY;
@@ -79,6 +87,28 @@ public final class CropClimatesConfig {
         DEFAULT_BIOME_MOISTURE = builder
                 .comment("Moisture used for a biome that cannot be resolved at all (should not happen in practice).")
                 .defineInRange("defaultBiomeMoisture", 0.4, 0.0, 1.0);
+        DISPLAY_UNITS = builder
+                .comment("Temperature unit for Soil Tester and Hygrometer reports when a player's own Cold Sweat unit preference cannot be read.")
+                .defineEnum("displayUnits", Units.F);
+        builder.pop();
+
+        builder.push("weather");
+        RAIN_HUMIDITY_SHIFT = builder
+                .comment("Added to humidity for as long as rain is actually falling on a crop (or an outdoor Hygrometer). " +
+                        "Roofs, glass included, and sealed greenhouses block it.")
+                .defineInRange("rainHumidityShift", 0.25, 0.0, 1.0);
+        builder.pop();
+
+        builder.push("regression");
+        REGRESSION_ENABLED = builder
+                .comment("Whether plants far outside their bands slowly lose growth stages (saplings eventually die to a dead bush).")
+                .define("regressionEnabled", true);
+        REGRESSION_FIT_THRESHOLD = builder
+                .comment("A plant regresses only while its temperature or humidity fit is below this (1.0 = ideal; 0.25 is two halvings outside the band).")
+                .defineInRange("regressionFitThreshold", 0.25, 0.0, 1.0);
+        REGRESSION_CHANCE = builder
+                .comment("Chance per failed governed random tick of losing one stage. 0.02 is roughly one stage per in-game hour.")
+                .defineInRange("regressionChance", 0.02, 0.0, 1.0);
         builder.pop();
 
         builder.push("performance");
@@ -98,45 +128,42 @@ public final class CropClimatesConfig {
 
         builder.push("greenhouse");
         GREENHOUSE_ENABLED = builder
-                .comment("Whether a sealed volume waives a crop's humidity requirement.")
+                .comment("Whether a Hygrometer in a sealed room turns it into a greenhouse whose humidity replaces the biome's.")
                 .define("greenhouseEnabled", true);
         GREENHOUSE_MAX_VOLUME = builder
-                .comment("Cells a fill may visit before the space is judged too open. Counts wall blocks, not just air.")
-                .defineInRange("greenhouseMaxVolume", 768, 1, Integer.MAX_VALUE);
+                .comment("Largest greenhouse, in interior cells (air, water, crops - not walls). Bigger rooms read as too large.")
+                .defineInRange("greenhouseMaxVolume", 4096, 1, Integer.MAX_VALUE);
         GREENHOUSE_MIN_VOLUME = builder
-                .comment("Smallest sealed space that counts as a greenhouse. Stops a single slab over one crop.")
+                .comment("Smallest sealed room, in interior cells, that counts as a greenhouse.")
                 .defineInRange("greenhouseMinVolume", 12, 1, Integer.MAX_VALUE);
-        GREENHOUSE_MAX_RADIUS = builder
-                .comment("Horizontal reach of the fill from the crop.")
-                .defineInRange("greenhouseMaxRadius", 16, 1, Integer.MAX_VALUE);
-        GREENHOUSE_MAX_HEIGHT = builder
-                .comment("Vertical reach of the fill from the crop.")
-                .defineInRange("greenhouseMaxHeight", 12, 1, Integer.MAX_VALUE);
         GREENHOUSE_SKY_SCAN = builder
                 .comment("Blocks scanned upward per sky test. Matches the hearth's own value.")
                 .defineInRange("greenhouseSkyScan", 64, 1, Integer.MAX_VALUE);
-        GREENHOUSE_CACHE_TTL = builder
-                .comment("Ticks an enclosure verdict stays valid. Also how long a broken wall keeps working.")
-                .defineInRange("greenhouseCacheTtl", 600, 1, Integer.MAX_VALUE);
-        GREENHOUSE_CACHE_CAP = builder
-                .comment("Cached verdicts before the cache is dropped wholesale.")
-                .defineInRange("greenhouseCacheCap", 4000, 1, Integer.MAX_VALUE);
-        GREENHOUSE_FILLS_PER_TICK = builder
-                .comment("Full flood fills per tick. Sky-escapes are not metered.")
-                .defineInRange("greenhouseFillsPerTick", 2, 1, Integer.MAX_VALUE);
+        GREENHOUSE_CELLS_PER_TICK = builder
+                .comment("Cells all greenhouse scans in a dimension may visit per tick. Large rooms finish over several ticks.")
+                .defineInRange("greenhouseCellsPerTick", 2048, 1, Integer.MAX_VALUE);
+        GREENHOUSE_RESCAN_INTERVAL = builder
+                .comment("Ticks between routine rescans of a greenhouse, as a backstop to change detection.")
+                .defineInRange("greenhouseRescanInterval", 1200, 20, Integer.MAX_VALUE);
+        GREENHOUSE_UNSEALED_RETRY_INTERVAL = builder
+                .comment("Ticks between retries for a Hygrometer that is not in a sealed room.")
+                .defineInRange("greenhouseUnsealedRetryInterval", 600, 20, Integer.MAX_VALUE);
+        GREENHOUSE_CHANGE_DELAY = builder
+                .comment("Ticks to wait after a block changes in or around a greenhouse before rescanning, so a burst of changes costs one scan.")
+                .defineInRange("greenhouseChangeDelay", 20, 1, Integer.MAX_VALUE);
         HUMIDITY_BLOCK_MULTIPLIER = builder
                 .comment("Scale applied to net water/lava/desiccant/humidifier weight before dividing by " +
                         "room size (walls included) and adding to biome humidity. Water/humidifier +1, " +
                         "desiccant -1, lava -3.")
                 .defineInRange("humidityBlockMultiplier", 3.0, 0.0, 100.0);
         GREENHOUSE_DRIP_HUMIDITY = builder
-                .comment("Effective humidity at/above which a sealed greenhouse occasionally drips water from its ceiling.")
+                .comment("Humidity at/above which a greenhouse occasionally drips water from its ceiling.")
                 .defineInRange("greenhouseDripHumidity", 0.9, 0.0, 1.0);
         GREENHOUSE_DRIP_CHANCE = builder
                 .comment("Chance per governed random tick, per crop, of spawning one drip particle while above the drip humidity.")
                 .defineInRange("greenhouseDripChance", 0.025, 0.0, 1.0);
         GREENHOUSE_DUST_HUMIDITY = builder
-                .comment("Effective humidity at/below which a sealed greenhouse infrequently puffs dust from its ceiling.")
+                .comment("Humidity at/below which a greenhouse infrequently puffs dust from its ceiling.")
                 .defineInRange("greenhouseDustHumidity", 0.1, 0.0, 1.0);
         GREENHOUSE_DUST_CHANCE = builder
                 .comment("Chance per governed random tick, per crop, of spawning one dust particle while below the dust humidity.")

@@ -11,10 +11,12 @@ import net.minecraft.world.level.block.state.BlockState;
 /**
  * Purely cosmetic. Rides the same governed random tick that already produced
  * an {@code ENCLOSED} {@link GrowthGovernor.GrowthReading}, so it costs one
- * short upward scan (capped by {@code greenhouseMaxHeight}) and no extra
- * world state - never anything that affects growth math.
+ * short upward scan and no extra world state - never anything that affects
+ * growth math.
  */
 public final class GreenhouseParticles {
+
+    private static final int MAX_CEILING_SCAN = 24;
 
     private GreenhouseParticles() {
     }
@@ -48,8 +50,7 @@ public final class GreenhouseParticles {
     /** Highest open cell directly above the crop, i.e. the cell just below the room's ceiling. */
     private static BlockPos findCeiling(ServerLevel level, BlockPos cropPos) {
         BlockPos pos = cropPos.above();
-        int maxHeight = CropClimatesConfig.GREENHOUSE_MAX_HEIGHT.get();
-        for (int i = 0; i < maxHeight; i++) {
+        for (int i = 0; i < MAX_CEILING_SCAN; i++) {
             BlockPos next = pos.above();
             BlockState state = level.getBlockState(next);
             boolean open = state.isAir() || !state.getFluidState().isEmpty();
