@@ -22,6 +22,11 @@ repositories {
 val coldSweatJar = providers.gradleProperty("coldSweatJar")
     .orElse("libs/ColdSweat-2.4.3.jar")
 
+// Jade is optional at runtime - only its own plugin discovery ever loads
+// compat.jade.CropClimatesJadePlugin - so it is compileOnly, like Cold Sweat.
+val jadeJar = providers.gradleProperty("jadeJar")
+    .orElse("libs/Jade-1.21.1-NeoForge-15.10.6.jar")
+
 neoForge {
     version = "21.1.248"
 
@@ -48,6 +53,7 @@ neoForge {
 
 dependencies {
     compileOnly(files(coldSweatJar.get()))
+    compileOnly(files(jadeJar.get()))
 
     testImplementation(platform("org.junit:junit-bom:6.0.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
