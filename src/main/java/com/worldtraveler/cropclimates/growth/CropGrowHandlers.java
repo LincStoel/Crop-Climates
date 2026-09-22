@@ -11,10 +11,10 @@ import org.slf4j.Logger;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * {@code CropGrowEvent.Pre}/{@code .Post} - the 61-plant hook (everything
- * that funnels through {@code CommonHooks.canCropGrow}). Mirrors
- * {@code crop_growth.js}'s NativeEvents handlers exactly, including the
- * re-entrancy flag and the graduated error budget.
+ * {@code CropGrowEvent.Pre}/{@code .Post} - the hook for every plant that
+ * funnels through {@code CommonHooks.canCropGrow}. Slows growth by vetoing
+ * ticks and speeds it up by driving one extra random tick, guarded by a
+ * re-entrancy flag and a graduated error budget.
  *
  * <p>A random-tick hook must never be able to crash a world: every entry
  * point here is wrapped, failures are logged up to
@@ -113,7 +113,7 @@ public final class CropGrowHandlers {
         if (count >= limit) {
             disabled = true;
             LOGGER.error("crop_climates: too many errors, DISABLING climate growth for this session. "
-                    + "Plants revert to vanilla speed. Fix the error above and /reload.");
+                    + "Plants revert to vanilla speed. Fix the error above and restart the server.");
         }
     }
 }

@@ -15,10 +15,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Temperature axis. Reads Cold Sweat's {@code WorldHelper.getRoughTemperatureAt}
- * live, per block, with the same cache semantics as the KubeJS
- * {@code wtLocalTempF} - see {@code design_reference_kubejs_implementation.md}
- * section 6. {@code Temperature.convert(mc, MC, F, true)} replaces the
- * hand-rolled {@code mc * 45 + 32}; the two are bytecode-identical.
+ * live, cached per coarse 4x8x4 cell for {@code tempCacheTtl} ticks and
+ * metered by a per-tick read budget. {@code Temperature.convert(mc, MC, F, true)}
+ * turns Cold Sweat's internal units into the Fahrenheit the bands use.
  */
 public final class ClimateSampler {
 
@@ -71,14 +70,16 @@ public final class ClimateSampler {
         long now = level.getGameTime();
         CacheKey key = new CacheKey(level.dimension(), packedCell(pos), water);
         CacheEntry hit = CACHE.get(key);
-        if (hit != null && now - hit.tick() < CropClimatesConfig.TEMP_CACHE_TTL.get()) {
+        // now < tick means the entry came from another world (singleplayer
+        // world switch keeps statics alive) - never trust it.
+        if (hit != null && now >= hit.tick() && now - hit.tick() < CropClimatesConfig.TEMP_CACHE_TTL.get()) {
             return OptionalDouble.of(hit.fahrenheit());
         }
 
         if (!withinBudget(now)) {
             // Over budget this tick - a stale reading beats a stampede of area
             // scans when a big farm loads; with nothing cached, decline to score.
-            return hit != null ? OptionalDouble.of(hit.fahrenheit()) : OptionalDouble.empty();
+            return hit != null && now >= hit.tick() ? OptionalDouble.of(hit.fahrenheit()) : OptionalDouble.empty();
         }
 
         double mc;
@@ -97,6 +98,17 @@ public final class ClimateSampler {
         }
         CACHE.put(key, new CacheEntry(now, fahrenheit));
         return OptionalDouble.of(fahrenheit);
+    }
+
+    /** Drops every cached reading and resets the budget - called when a server stops. */
+    public static void clear() {
+        CACHE.clear();
+        budgetTick = Long.MIN_VALUE;
+        budgetSpent.set(0);
+    }
+
+    public static int cacheSize() {
+        return CACHE.size();
     }
 
     private static boolean withinBudget(long now) {

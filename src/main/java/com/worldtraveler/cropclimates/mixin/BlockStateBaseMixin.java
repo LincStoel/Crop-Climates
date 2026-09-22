@@ -18,9 +18,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 /**
  * {@code randomTick} has no NeoForge event - {@code SaplingBlock} never fires
  * {@code CropGrowEvent} and {@code BlockGrowFeatureEvent} only covers nether
- * fungi/huge mushrooms - so this replaces KubeJS's cancellable
- * {@code BlockEvents.randomTick} mixin for the sapling/own-tick half (55
- * plants) of the system.
+ * fungi/huge mushrooms - so this governs the sapling/own-tick plants directly
+ * at the head of {@code randomTick}.
  *
  * <p>Only blocks in {@link ClimateBands#isRandomTickGoverned} pay anything -
  * one hash-set probe - everything else falls straight through to vanilla.

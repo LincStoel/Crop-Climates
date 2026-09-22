@@ -4,6 +4,8 @@ import com.worldtraveler.cropclimates.client.CropTooltips;
 import com.worldtraveler.cropclimates.climate.BiomeMoisture;
 import com.worldtraveler.cropclimates.climate.ClimateBand;
 import com.worldtraveler.cropclimates.climate.ClimateBands;
+import com.worldtraveler.cropclimates.climate.ClimateSampler;
+import com.worldtraveler.cropclimates.climate.EnclosureSampler;
 import com.worldtraveler.cropclimates.growth.CropGrowHandlers;
 import com.worldtraveler.cropclimates.item.SoilTesterItem;
 import com.worldtraveler.cropclimates.net.ClimateSyncPayload;
@@ -19,6 +21,7 @@ import net.neoforged.neoforge.event.AddReloadListenerEvent;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.event.OnDatapackSyncEvent;
 import net.neoforged.neoforge.event.level.block.CropGrowEvent;
+import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.registries.DeferredItem;
@@ -37,7 +40,7 @@ public final class CropClimates {
             "soil_tester", SoilTesterItem::new, new Item.Properties().stacksTo(1));
 
     public CropClimates(IEventBus modBus, ModContainer container) {
-        container.registerConfig(ModConfig.Type.COMMON, CropClimatesConfig.SPEC);
+        container.registerConfig(ModConfig.Type.SERVER, CropClimatesConfig.SPEC);
 
         ITEMS.register(modBus);
         modBus.addListener(RegisterPayloadHandlersEvent.class, this::registerPayloads);
@@ -47,6 +50,16 @@ public final class CropClimates {
         NeoForge.EVENT_BUS.addListener(CropGrowEvent.Pre.class, CropGrowHandlers::onPre);
         NeoForge.EVENT_BUS.addListener(CropGrowEvent.Post.class, CropGrowHandlers::onPost);
         NeoForge.EVENT_BUS.addListener(OnDatapackSyncEvent.class, this::onDatapackSync);
+        NeoForge.EVENT_BUS.addListener(ServerStoppedEvent.class, event -> clearCaches());
+    }
+
+    /**
+     * Singleplayer keeps statics alive across worlds, so every cache keyed by
+     * game time must be dropped when a server stops.
+     */
+    private static void clearCaches() {
+        ClimateSampler.clear();
+        EnclosureSampler.clear();
     }
 
     private void registerPayloads(RegisterPayloadHandlersEvent event) {

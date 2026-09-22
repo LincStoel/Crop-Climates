@@ -6,9 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Pins {@link GrowthModel} against the worked examples in
- * {@code design_reference_kubejs_implementation.md} - the growth math must
- * produce byte-for-byte the same multipliers the KubeJS system did.
+ * Pins {@link GrowthModel} against hand-worked examples - the growth math
+ * must keep producing exactly these multipliers.
  */
 class GrowthModelTest {
 

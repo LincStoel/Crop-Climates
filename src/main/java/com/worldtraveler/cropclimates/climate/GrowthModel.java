@@ -1,9 +1,7 @@
 package com.worldtraveler.cropclimates.climate;
 
 /**
- * Pure growth math, no Minecraft types. Direct translation of {@code wtFit}/
- * {@code wtFitEdge}/{@code wtMultiplier}'s scoring core from the KubeJS system
- * (see {@code design_reference_kubejs_implementation.md}).
+ * Pure growth math, no Minecraft types, so it can be pinned by unit tests.
  */
 public final class GrowthModel {
 

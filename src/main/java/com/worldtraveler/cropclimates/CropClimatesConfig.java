@@ -3,9 +3,9 @@ package com.worldtraveler.cropclimates;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 /**
- * Tuning constants, COMMON config. Defaults are exactly the values baked into
- * the KubeJS system's {@code crop_growth_data.js} - see
- * {@code design_reference_kubejs_implementation.md} section 3.
+ * Tuning constants. A SERVER config, so it lives per world
+ * ({@code <world>/serverconfig/crop_climates-server.toml}) and is only ever
+ * read on the logical server.
  */
 public final class CropClimatesConfig {
 
@@ -128,7 +128,7 @@ public final class CropClimatesConfig {
                 .comment("Scale applied to net water/lava/desiccant/humidifier weight before dividing by " +
                         "room size (walls included) and adding to biome humidity. Water/humidifier +1, " +
                         "desiccant -1, lava -3.")
-                .defineInRange("humidity_block_multiplier", 3.0, 0.0, 100.0);
+                .defineInRange("humidityBlockMultiplier", 3.0, 0.0, 100.0);
         GREENHOUSE_DRIP_HUMIDITY = builder
                 .comment("Effective humidity at/above which a sealed greenhouse occasionally drips water from its ceiling.")
                 .defineInRange("greenhouseDripHumidity", 0.9, 0.0, 1.0);

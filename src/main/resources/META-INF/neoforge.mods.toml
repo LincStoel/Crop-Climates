@@ -7,15 +7,17 @@ modId = "crop_climates"
 version = "${file.jarVersion}"
 displayName = "Crop Climates"
 description = '''
-Climate-driven crop growth: every growable block has an ideal temperature and
-humidity band, and how well its position matches those bands scales its
-growth rate from 1.25x down to 0.01x. Temperature is read live from Cold
-Sweat, so hearths and iceboxes act as greenhouses - and so does any other
-sealed, hearth-air-holding room you build, which waives a crop's humidity
-requirement entirely. Aquatic crops score against water temperature and
-ignore humidity while submerged. Per-crop bands and compatibility data ship
-as datapacks that skip silently when the owning mod is absent - Cold Sweat
-is the only hard dependency.
+Climate-driven crop growth. Every growable block has an ideal temperature and
+humidity band, and how well its spot matches them scales its growth from 1.25x
+down to a crawl - far enough outside, crops slowly wilt back a stage and
+saplings die off. Temperature is read live from Cold Sweat, so hearths and
+iceboxes shape a farm's climate. Rain raises humidity where it actually falls.
+Hang a Hygrometer inside a sealed room to turn it into a greenhouse: water and
+wet sponges humidify it, lava and dry sponges dry it out, and every crop inside
+grows by the room's humidity instead of the biome's. Aquatic crops score
+against water temperature while submerged. Per-crop bands ship as datapacks
+that skip silently when the owning mod is absent. Cold Sweat is the only hard
+dependency; Jade support is optional.
 '''
 
 [[mixins]]
@@ -39,5 +41,12 @@ side = "BOTH"
 modId = "cold_sweat"
 type = "required"
 versionRange = "[2.4.3,)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.crop_climates]]
+modId = "jade"
+type = "optional"
+versionRange = "[15,)"
 ordering = "NONE"
 side = "BOTH"

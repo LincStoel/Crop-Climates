@@ -13,11 +13,8 @@ import java.util.Map;
 
 /**
  * Server -> client band table, sent on {@code OnDatapackSyncEvent} (login and
- * {@code /reload}). Replaces the client reading the datapack a second time
- * itself, which is what the KubeJS client loader had to do because client and
- * server scripts do not share a scope - see the port plan's "approved change"
- * for tooltips. Correct on dedicated servers and for packs that override the
- * data, neither of which the file-reading version handled.
+ * {@code /reload}), so the client never reads datapacks itself. Correct on
+ * dedicated servers and for packs that override the data.
  */
 public record ClimateSyncPayload(Map<ResourceLocation, TipBand> bands) implements CustomPacketPayload {
 

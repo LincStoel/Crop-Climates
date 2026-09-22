@@ -84,6 +84,9 @@ public final class EnclosureSampler {
         BlockPos origin = cropPos.above();
         CacheKey key = new CacheKey(level.dimension(), origin.asLong());
         CacheEntry hit = CACHE.get(key);
+        if (hit != null && now < hit.tick()) {
+            hit = null; // from another world - see ClimateSampler
+        }
         if (!forceRefresh && hit != null && now - hit.tick() < CropClimatesConfig.GREENHOUSE_CACHE_TTL.get()) {
             return hit.enclosed()
                     ? new Reading(true, clampedHumidity(biomeHumidity, hit.density()))
@@ -207,6 +210,12 @@ public final class EnclosureSampler {
                 CropClimatesConfig.GREENHOUSE_MAX_HEIGHT.get());
 
         return EnclosureFlood.flood(origin, steps, cells, limits);
+    }
+
+    public static void clear() {
+        CACHE.clear();
+        budgetTick = Long.MIN_VALUE;
+        budgetSpent.set(0);
     }
 
     private static boolean withinBudget(long now) {
