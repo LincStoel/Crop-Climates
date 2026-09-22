@@ -164,11 +164,11 @@ public final class CropClimatesConfig {
                         "falling from random spots on its ceiling. Only spawned with a player nearby.")
                 .defineInRange("greenhouseDripRate", 0.5, 0.0, 100.0);
         GREENHOUSE_DUST_HUMIDITY = builder
-                .comment("Humidity at/below which dust sifts down from a greenhouse's ceiling.")
+                .comment("Humidity at/below which dust drifts up off a greenhouse's floor.")
                 .defineInRange("greenhouseDustHumidity", 0.1, 0.0, 1.0);
         GREENHOUSE_DUST_RATE = builder
                 .comment("Dust motes per second for every 100 interior cells of a greenhouse at/below the dust humidity, " +
-                        "sifting down from random spots on its ceiling. Only spawned with a player nearby.")
+                        "rising slowly from random spots on its floor. Only spawned with a player nearby.")
                 .defineInRange("greenhouseDustRate", 0.25, 0.0, 100.0);
         builder.pop();
 

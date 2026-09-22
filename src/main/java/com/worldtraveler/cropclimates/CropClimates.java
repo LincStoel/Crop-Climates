@@ -74,6 +74,7 @@ public final class CropClimates {
     public static final DeferredHolder<ParticleType<?>, SimpleParticleType> WILT_HOT = particle("wilt_hot");
     public static final DeferredHolder<ParticleType<?>, SimpleParticleType> WILT_DRY = particle("wilt_dry");
     public static final DeferredHolder<ParticleType<?>, SimpleParticleType> WILT_WET = particle("wilt_wet");
+    public static final DeferredHolder<ParticleType<?>, SimpleParticleType> GREENHOUSE_DUST = particle("greenhouse_dust");
 
     private static DeferredHolder<ParticleType<?>, SimpleParticleType> particle(String name) {
         return PARTICLES.register(name, () -> new SimpleParticleType(false));

@@ -1,18 +1,17 @@
 package com.worldtraveler.cropclimates.greenhouse;
 
+import com.worldtraveler.cropclimates.CropClimates;
 import com.worldtraveler.cropclimates.CropClimatesConfig;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
-import net.minecraft.world.level.block.Blocks;
 
 /**
  * Purely cosmetic greenhouse weather. Every {@link #INTERVAL} ticks each
  * greenhouse with a player nearby may drip water from its ceiling when humid,
- * or sift dust from it when dry. The count scales with the room's size, so a
+ * or send dust drifting up off its floor when dry. The count scales with the room's size, so a
  * big greenhouse drips about as densely as a small one. Only reads the
  * registry's already-scanned cells; never touches growth math.
  */
@@ -22,9 +21,7 @@ final class GreenhouseParticles {
 
     private static final double PLAYER_RANGE = 48.0;
     private static final int MAX_PER_ROUND = 16;
-    private static final int MAX_CEILING_CLIMB = 64;
-    private static final ParticleOptions DUST =
-            new BlockParticleOption(ParticleTypes.FALLING_DUST, Blocks.SAND.defaultBlockState());
+    private static final int MAX_CLIMB = 64;
 
     private GreenhouseParticles() {
     }
@@ -41,12 +38,15 @@ final class GreenhouseParticles {
         double humidity = room.humidity(level);
         ParticleOptions particle;
         double perSecondPer100;
+        boolean fromCeiling;
         if (humidity >= CropClimatesConfig.GREENHOUSE_DRIP_HUMIDITY.get()) {
             particle = ParticleTypes.DRIPPING_WATER;
             perSecondPer100 = CropClimatesConfig.GREENHOUSE_DRIP_RATE.get();
+            fromCeiling = true;
         } else if (humidity <= CropClimatesConfig.GREENHOUSE_DUST_HUMIDITY.get()) {
-            particle = DUST;
+            particle = CropClimates.GREENHOUSE_DUST.get();
             perSecondPer100 = CropClimatesConfig.GREENHOUSE_DUST_RATE.get();
+            fromCeiling = false;
         } else {
             return;
         }
@@ -55,19 +55,23 @@ final class GreenhouseParticles {
         double expected = perSecondPer100 * room.size() / 100.0 * INTERVAL / 20.0;
         int count = (int) expected + (random.nextDouble() < expected - (int) expected ? 1 : 0);
         for (int i = 0; i < Math.min(count, MAX_PER_ROUND); i++) {
-            BlockPos top = ceilingAbove(room, BlockPos.of(room.randomCell(random)));
-            double x = top.getX() + 0.2 + random.nextDouble() * 0.6;
-            double y = top.getY() + 0.95;
-            double z = top.getZ() + 0.2 + random.nextDouble() * 0.6;
+            BlockPos cell = BlockPos.of(room.randomCell(random));
+            BlockPos end = extreme(room, cell, fromCeiling ? 1 : -1);
+            double x = end.getX() + 0.2 + random.nextDouble() * 0.6;
+            double y = fromCeiling ? end.getY() + 0.95 : end.getY() + 0.1 + random.nextDouble() * 0.3;
+            double z = end.getZ() + 0.2 + random.nextDouble() * 0.6;
             level.sendParticles(particle, x, y, z, 1, 0.0, 0.0, 0.0, 0.0);
         }
     }
 
-    /** The highest interior cell straight above {@code cell} - the one just under the roof. */
-    private static BlockPos ceilingAbove(Room room, BlockPos cell) {
+    /**
+     * The last interior cell straight up ({@code step} 1 - just under the roof)
+     * or straight down ({@code step} -1 - just above the floor) from {@code cell}.
+     */
+    private static BlockPos extreme(Room room, BlockPos cell, int step) {
         BlockPos.MutableBlockPos pos = cell.mutable();
-        for (int i = 0; i < MAX_CEILING_CLIMB && room.containsCell(BlockPos.asLong(pos.getX(), pos.getY() + 1, pos.getZ())); i++) {
-            pos.move(0, 1, 0);
+        for (int i = 0; i < MAX_CLIMB && room.containsCell(BlockPos.asLong(pos.getX(), pos.getY() + step, pos.getZ())); i++) {
+            pos.move(0, step, 0);
         }
         return pos.immutable();
     }

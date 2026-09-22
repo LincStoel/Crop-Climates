@@ -32,5 +32,6 @@ public final class ClientSetup {
         event.registerSpriteSet(CropClimates.WILT_HOT.get(), sprites -> new WiltParticle.Provider(sprites, 0.55F, 0.52F, 0.50F));
         event.registerSpriteSet(CropClimates.WILT_DRY.get(), sprites -> new WiltParticle.Provider(sprites, 0.80F, 0.68F, 0.48F));
         event.registerSpriteSet(CropClimates.WILT_WET.get(), sprites -> new WiltParticle.Provider(sprites, 0.38F, 0.50F, 0.34F));
+        event.registerSpriteSet(CropClimates.GREENHOUSE_DUST.get(), GreenhouseDustParticle.Provider::new);
     }
 }
