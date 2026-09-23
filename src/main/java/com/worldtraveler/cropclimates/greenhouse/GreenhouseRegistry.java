@@ -4,6 +4,7 @@ import com.mojang.logging.LogUtils;
 import com.worldtraveler.cropclimates.CropClimatesConfig;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongIterator;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.SectionPos;
@@ -341,6 +342,8 @@ public final class GreenhouseRegistry extends SavedData {
         if (!probes.containsKey(probe.id)) {
             return;
         }
+        GreenhouseStatus statusBefore = probe.status;
+        Room roomBefore = probe.room;
         removeFootprint(probe);
         RoomScan.Status result = scan.status();
 
@@ -352,14 +355,19 @@ public final class GreenhouseRegistry extends SavedData {
             } else {
                 addFootprint(probe, probe.room.bounds);
             }
+            if (probe.status != statusBefore) {
+                setDirty();
+            }
             return;
         }
 
         addFootprint(probe, scan.bounds());
+        boolean changed;
         if (result == RoomScan.Status.ENCLOSED) {
-            installRoom(probe, scan, now);
+            changed = installRoom(probe, scan, now);
             probe.dueTick = now + stagger(probe, CropClimatesConfig.GREENHOUSE_RESCAN_INTERVAL.get());
         } else {
+            changed = probe.room != null;
             if (probe.isAnchor()) {
                 dissolve(probe.room, now);
             } else {
@@ -375,7 +383,11 @@ public final class GreenhouseRegistry extends SavedData {
         if (activeInvalidated) {
             probe.dueTick = Math.min(probe.dueTick, now + CropClimatesConfig.GREENHOUSE_CHANGE_DELAY.get());
         }
-        setDirty();
+        // A routine rescan of an unchanged room has nothing new to save, and
+        // re-serialising every room's cells on each autosave is not free.
+        if (changed || probe.status != statusBefore || probe.room != roomBefore) {
+            setDirty();
+        }
     }
 
     /** Spreads routine rescans out so rooms placed together do not rescan together. */
@@ -383,25 +395,23 @@ public final class GreenhouseRegistry extends SavedData {
         return interval + Math.floorMod(probe.id.hashCode(), Math.max(1, interval / 4));
     }
 
-    private void installRoom(Probe anchor, RoomScan scan, long now) {
+    /** Installs an enclosed scan as {@code anchor}'s room; returns whether anything worth saving changed. */
+    private boolean installRoom(Probe anchor, RoomScan scan, long now) {
         Room room = anchor.isAnchor() ? anchor.room : null;
+        boolean changed = false;
         if (room == null) {
             leaveRoom(anchor, true);
             room = new Room(UUID.randomUUID());
             rooms.put(room.id, room);
+            changed = true;
         }
-        unindex(room);
-        room.update(scan, anchor.id, now);
+        LongOpenHashSet previousCells = room.interior;
+        changed |= room.update(scan, anchor.id, now);
 
         // Any other greenhouse this scan now overlaps (a wall came down
         // between two rooms) merges into this one.
-        Set<Room> absorbed = new HashSet<>();
-        for (LongIterator it = room.interior.iterator(); it.hasNext(); ) {
-            Room previous = cellIndex.put(it.nextLong(), room);
-            if (previous != null && previous != room) {
-                absorbed.add(previous);
-            }
-        }
+        Set<Room> absorbed = reindex(room, previousCells);
+        changed |= !absorbed.isEmpty();
         for (Room other : absorbed) {
             rooms.remove(other.id);
             unindex(other);
@@ -421,6 +431,7 @@ public final class GreenhouseRegistry extends SavedData {
             Probe member = probes.get(memberId);
             if (member == null || !room.interior.contains(member.pos.asLong())) {
                 room.members.remove(memberId);
+                changed = true;
                 if (member != null) {
                     member.room = null;
                     member.status = GreenhouseStatus.SCANNING;
@@ -434,11 +445,52 @@ public final class GreenhouseRegistry extends SavedData {
                     probe.room.members.remove(probe.id);
                 }
                 join(probe, room);
+                changed = true;
             }
         }
         anchor.room = room;
         anchor.status = GreenhouseStatus.GREENHOUSE;
-        room.members.add(anchor.id);
+        changed |= room.members.add(anchor.id);
+        return changed;
+    }
+
+    /**
+     * Brings the cell index in line with a room's new interior by difference,
+     * so rescanning an unchanged room costs lookups only. Returns the other
+     * rooms whose cells it now covers.
+     *
+     * <p>Removing every cell and putting them back in the new set's hash
+     * order made fastutil's linear probing cluster - about 350 ms for one
+     * rescan of a max-size room. Bulk inserts are sized first for the same
+     * reason: inserting in another table's hash order into a table that
+     * grows as it goes clusters just as badly.
+     */
+    private Set<Room> reindex(Room room, LongOpenHashSet previousCells) {
+        if (previousCells != room.interior) {
+            for (LongIterator it = previousCells.iterator(); it.hasNext(); ) {
+                long cell = it.nextLong();
+                if (!room.interior.contains(cell) && cellIndex.get(cell) == room) {
+                    cellIndex.remove(cell);
+                }
+            }
+        }
+        int missing = 0;
+        for (LongIterator it = room.interior.iterator(); it.hasNext(); ) {
+            if (cellIndex.get(it.nextLong()) != room) {
+                missing++;
+            }
+        }
+        Set<Room> absorbed = new HashSet<>();
+        if (missing > 0) {
+            cellIndex.ensureCapacity(cellIndex.size() + missing);
+            for (LongIterator it = room.interior.iterator(); it.hasNext(); ) {
+                Room previous = cellIndex.put(it.nextLong(), room);
+                if (previous != null && previous != room) {
+                    absorbed.add(previous);
+                }
+            }
+        }
+        return absorbed;
     }
 
     private void join(Probe probe, Room room) {
@@ -570,10 +622,16 @@ public final class GreenhouseRegistry extends SavedData {
      */
     static GreenhouseRegistry load(CompoundTag tag, HolderLookup.Provider registries) {
         GreenhouseRegistry registry = new GreenhouseRegistry();
+        int cells = 0;
         for (Tag entry : tag.getList("Rooms", Tag.TAG_COMPOUND)) {
             Room room = Room.load((CompoundTag) entry);
             room.members.clear();
             registry.rooms.put(room.id, room);
+            cells += room.interior.size();
+        }
+        // Sized up front - see reindex() on why hash-order inserts must not grow the table.
+        registry.cellIndex.ensureCapacity(cells);
+        for (Room room : registry.rooms.values()) {
             for (LongIterator it = room.interior.iterator(); it.hasNext(); ) {
                 registry.cellIndex.put(it.nextLong(), room);
             }

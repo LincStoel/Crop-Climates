@@ -12,6 +12,7 @@ import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.level.Level;
 
+import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -44,7 +45,15 @@ public final class Room {
         this.id = id;
     }
 
-    void update(RoomScan scan, UUID anchor, long now) {
+    /** Takes a fresh scan's results; returns whether anything saved with the room changed. */
+    boolean update(RoomScan scan, UUID anchor, long now) {
+        RoomScan.WeightTally tally = scan.tally();
+        boolean changed = !anchor.equals(this.anchor) || netWeight != tally.net()
+                || !Arrays.equals(bounds, scan.bounds());
+        for (EnclosureHumidity.Effect effect : EnclosureHumidity.Effect.values()) {
+            changed |= sourceCounts[effect.ordinal()] != tally.count(effect);
+        }
+        changed = changed || !interior.equals(scan.interior());
         this.anchor = anchor;
         this.anchorPos = scan.origin();
         this.interior = scan.interior();
@@ -55,6 +64,7 @@ public final class Room {
             sourceCounts[effect.ordinal()] = scan.tally().count(effect);
         }
         this.lastScan = now;
+        return changed;
     }
 
     /** Biome humidity at the anchor hygrometer, before the room's own sources. */
