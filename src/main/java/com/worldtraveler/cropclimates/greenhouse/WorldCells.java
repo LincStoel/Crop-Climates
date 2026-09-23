@@ -3,6 +3,7 @@ package com.worldtraveler.cropclimates.greenhouse;
 import com.momosoftworks.coldsweat.api.registry.SpreadRuleRegistry;
 import com.momosoftworks.coldsweat.api.spread_rule.SpreadContext;
 import com.momosoftworks.coldsweat.api.spread_rule.SpreadRule;
+import com.momosoftworks.coldsweat.config.ConfigSettings;
 import com.momosoftworks.coldsweat.util.world.WorldHelper;
 import com.mojang.logging.LogUtils;
 import com.worldtraveler.cropclimates.CropClimatesConfig;
@@ -13,6 +14,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.FluidTags;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.FluidState;
 import org.slf4j.Logger;
@@ -43,6 +45,25 @@ final class WorldCells implements RoomScan.Steps, RoomScan.Cells {
 
     static boolean isAvailable() {
         return available;
+    }
+
+    /**
+     * Whether Cold Sweat's config names this block in its spread whitelist
+     * (hearth air passes it despite its shape) or blacklist (it stops hearth
+     * air despite its shape). Its default config lists leaves and water.
+     * Assumes it does if the lists can't be read.
+     */
+    static boolean isSpreadListed(BlockState state) {
+        if (!available) {
+            return true;
+        }
+        try {
+            Block block = state.getBlock();
+            return ConfigSettings.THERMAL_SOURCE_SPREAD_WHITELIST.get().contains(block)
+                    || ConfigSettings.THERMAL_SOURCE_SPREAD_BLACKLIST.get().contains(block);
+        } catch (RuntimeException | LinkageError ex) {
+            return true;
+        }
     }
 
     static void fail(RuntimeException ex) {

@@ -2,6 +2,7 @@ package com.worldtraveler.cropclimates.greenhouse;
 
 import com.mojang.logging.LogUtils;
 import com.worldtraveler.cropclimates.CropClimatesConfig;
+import com.worldtraveler.cropclimates.CropClimatesTags;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
@@ -14,10 +15,12 @@ import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.EmptyBlockGetter;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.phys.shapes.BooleanOp;
 import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import org.slf4j.Logger;
 
 import javax.annotation.Nullable;
@@ -201,20 +204,42 @@ public final class GreenhouseRegistry extends SavedData {
     }
 
     /**
-     * A crop growing a stage, water settling or a furnace lighting cannot
-     * change a greenhouse; a block appearing, vanishing, changing fluid or
-     * changing shape (a door opening) can.
+     * Whether a block change could change a greenhouse. Hearth air (Cold
+     * Sweat's spread rule, which decides rooms) passes every block without a
+     * collision shape and is stopped by every full cube, so swapping within
+     * either class moves no wall: planting, harvesting, cane or kelp growing,
+     * grass spreading onto dirt. A crop growing a stage or a furnace lighting
+     * changes nothing either. What does count: a change of fluid, a humidity
+     * source appearing or going, a block Cold Sweat's spread lists name, and
+     * any change of collision shape (a door opening, a melon appearing).
      */
     private static boolean matters(BlockState oldState, BlockState newState) {
-        if (oldState.getBlock() != newState.getBlock()) {
-            return true;
-        }
         if (!oldState.getFluidState().getType().isSame(newState.getFluidState().getType())) {
             return true;
         }
-        var oldShape = oldState.getCollisionShape(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, BlockPos.ZERO);
-        var newShape = newState.getCollisionShape(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, BlockPos.ZERO);
-        return oldShape != newShape && Shapes.joinIsNotEmpty(oldShape, newShape, BooleanOp.NOT_SAME);
+        boolean sameBlock = oldState.getBlock() == newState.getBlock();
+        if (!sameBlock && (isSource(oldState) || isSource(newState))) {
+            return true;
+        }
+        VoxelShape oldShape;
+        VoxelShape newShape;
+        try {
+            oldShape = oldState.getCollisionShape(EmptyBlockGetter.INSTANCE, BlockPos.ZERO);
+            newShape = newState.getCollisionShape(EmptyBlockGetter.INSTANCE, BlockPos.ZERO);
+        } catch (RuntimeException ex) {
+            // A modded block whose shape needs a real level: assume it matters.
+            return true;
+        }
+        if (sameBlock) {
+            return oldShape != newShape && Shapes.joinIsNotEmpty(oldShape, newShape, BooleanOp.NOT_SAME);
+        }
+        boolean sameClass = (oldShape.isEmpty() && newShape.isEmpty())
+                || (oldShape == Shapes.block() && newShape == Shapes.block());
+        return !sameClass || WorldCells.isSpreadListed(oldState) || WorldCells.isSpreadListed(newState);
+    }
+
+    private static boolean isSource(BlockState state) {
+        return state.is(CropClimatesTags.DESICCANT) || state.is(CropClimatesTags.HUMIDIFIER);
     }
 
     private static boolean contains(int[] bounds, BlockPos pos) {
