@@ -3,6 +3,7 @@ package com.worldtraveler.cropclimates.greenhouse;
 import com.mojang.logging.LogUtils;
 import com.worldtraveler.cropclimates.CropClimatesConfig;
 import com.worldtraveler.cropclimates.CropClimatesTags;
+import com.worldtraveler.cropclimates.advancement.CropAdvancements;
 import com.worldtraveler.cropclimates.climate.TemperatureUnits;
 import com.worldtraveler.cropclimates.report.ClimateReport;
 import com.worldtraveler.cropclimates.report.Reports;
@@ -76,8 +77,12 @@ public final class GreenhouseRegistry extends SavedData {
     private static final int MAX_BACKOFF = 4;
     private static final int PERIODIC_CHECK = 20;
 
-    /** A freshly hung hygrometer that just became part of a greenhouse, and the player who hung it. */
-    private record Announcement(UUID hygrometer, UUID player) {
+    /**
+     * A freshly hung hygrometer that just became part of a greenhouse, and the
+     * player who hung it; {@code created} when its own scan sealed the room
+     * rather than it joining one that already existed.
+     */
+    private record Announcement(UUID hygrometer, UUID player, boolean created) {
     }
 
     private final Map<UUID, Probe> probes = new LinkedHashMap<>();
@@ -512,7 +517,7 @@ public final class GreenhouseRegistry extends SavedData {
         if (result == RoomScan.Status.ENCLOSED) {
             changed = installRoom(probe, scan, now);
             if (notify != null && placed) {
-                announcements.add(new Announcement(probe.id, notify));
+                announcements.add(new Announcement(probe.id, notify, true));
             }
             announce(level);
             probe.misses = 0;
@@ -557,7 +562,11 @@ public final class GreenhouseRegistry extends SavedData {
         }
     }
 
-    /** Sends the hygrometer report to each player whose freshly hung hygrometer just became part of a greenhouse. */
+    /**
+     * Sends the hygrometer report to each player whose freshly hung hygrometer
+     * just became part of a greenhouse - and the greenhouse advancement when
+     * that hygrometer sealed a new one.
+     */
     private void announce(ServerLevel level) {
         for (Announcement a : announcements) {
             Probe probe = probes.get(a.hygrometer());
@@ -565,6 +574,9 @@ public final class GreenhouseRegistry extends SavedData {
             if (probe != null && probe.room != null && player != null) {
                 Reports.hygrometer(level, probe.pos, GreenhouseStatus.GREENHOUSE, probe.room, TemperatureUnits.forPlayer(player))
                         .send(line -> player.displayClientMessage(line, false));
+                if (a.created()) {
+                    CropAdvancements.award(player, CropAdvancements.GREENHOUSE);
+                }
             }
         }
         announcements.clear();
@@ -680,7 +692,7 @@ public final class GreenhouseRegistry extends SavedData {
         probe.room = room;
         probe.status = GreenhouseStatus.GREENHOUSE;
         if (probe.notify != null && probe.placed) {
-            announcements.add(new Announcement(probe.id, probe.notify));
+            announcements.add(new Announcement(probe.id, probe.notify, false));
         }
         probe.notify = null;
         probe.placed = false;

@@ -1,0 +1,23 @@
+{
+  "parent": "minecraft:husbandry/plant_seed",
+  "display": {
+    "icon": {
+      "id": "crop_climates:hygrometer"
+    },
+    "title": {
+      "translate": "advancements.crop_climates.greenhouse.title"
+    },
+    "description": {
+      "translate": "advancements.crop_climates.greenhouse.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "done": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

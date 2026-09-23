@@ -1,0 +1,23 @@
+{
+  "parent": "crop_climates:soiled_it",
+  "display": {
+    "icon": {
+      "id": "minecraft:player_head"
+    },
+    "title": {
+      "translate": "advancements.crop_climates.invasive.title"
+    },
+    "description": {
+      "translate": "advancements.crop_climates.invasive.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "done": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

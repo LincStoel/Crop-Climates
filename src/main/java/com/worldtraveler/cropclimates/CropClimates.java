@@ -1,5 +1,6 @@
 package com.worldtraveler.cropclimates;
 
+import com.worldtraveler.cropclimates.advancement.CropAdvancements;
 import com.worldtraveler.cropclimates.client.CropTooltips;
 import com.worldtraveler.cropclimates.climate.BiomeMoisture;
 import com.worldtraveler.cropclimates.climate.ClimateBand;
@@ -25,6 +26,7 @@ import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
@@ -104,6 +106,8 @@ public final class CropClimates {
         NeoForge.EVENT_BUS.addListener(LevelEvent.Unload.class, Greenhouses::onLevelUnload);
         NeoForge.EVENT_BUS.addListener(LevelTickEvent.Post.class, this::onLevelTick);
         NeoForge.EVENT_BUS.addListener(BlockEvent.NeighborNotifyEvent.class, HygrometerEntity::onNeighborNotify);
+        // Last, and never for a placement another mod (a claim) cancelled.
+        NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, false, BlockEvent.EntityPlaceEvent.class, CropAdvancements::onPlace);
         NeoForge.EVENT_BUS.addListener(PlayerEvent.PlayerLoggedOutEvent.class,
                 event -> VerdictPayloads.forget(event.getEntity().getUUID()));
     }

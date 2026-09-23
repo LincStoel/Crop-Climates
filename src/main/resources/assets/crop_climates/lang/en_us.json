@@ -1,6 +1,16 @@
 {
   "item.crop_climates.soil_tester": "Soil Tester",
   "item.crop_climates.hygrometer": "Hygrometer",
+  "advancements.crop_climates.greenhouse.title": "Hygrometer? I hardly know her!",
+  "advancements.crop_climates.greenhouse.description": "Create a greenhouse by hanging a Hygrometer",
+  "advancements.crop_climates.soiled_it.title": "Soiled it!",
+  "advancements.crop_climates.soiled_it.description": "Use a Soil Tester on a crop",
+  "advancements.crop_climates.thriving.title": "Thriving!",
+  "advancements.crop_climates.thriving.description": "Plant a crop or sapling in ideal conditions",
+  "advancements.crop_climates.desperate_conditions.title": "Desperate conditions",
+  "advancements.crop_climates.desperate_conditions.description": "Plant a crop or sapling in poor conditions",
+  "advancements.crop_climates.invasive.title": "Invasive!",
+  "advancements.crop_climates.invasive.description": "Use a Soil Tester on a player or mob",
   "entity.crop_climates.hygrometer": "Hygrometer",
 
   "tooltip.crop_climates.hold_alt": "Hold %s for growing conditions.",

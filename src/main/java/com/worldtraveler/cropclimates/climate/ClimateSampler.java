@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import java.util.OptionalDouble;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 
 /**
  * Temperature axis. Reads Cold Sweat's {@code WorldHelper.getRoughTemperatureAt}
@@ -50,6 +51,9 @@ public final class ClimateSampler {
     private static final AtomicInteger budgetSpent = new AtomicInteger();
 
     private static volatile boolean coldSweatAvailable = true;
+
+    /** Set while a player-driven reading runs; see {@link #unbudgeted}. */
+    private static final ThreadLocal<Boolean> UNBUDGETED = ThreadLocal.withInitial(() -> Boolean.FALSE);
 
     private ClimateSampler() {
     }
@@ -134,7 +138,24 @@ public final class ClimateSampler {
         return CACHE.size();
     }
 
+    /**
+     * Runs a reading for something a player just did (judging a crop they
+     * planted) without the per-tick read budget: one player action never
+     * stampedes, and coming back empty would quietly skip what they did.
+     */
+    public static <T> T unbudgeted(Supplier<T> reading) {
+        UNBUDGETED.set(Boolean.TRUE);
+        try {
+            return reading.get();
+        } finally {
+            UNBUDGETED.set(Boolean.FALSE);
+        }
+    }
+
     private static boolean withinBudget(long now) {
+        if (UNBUDGETED.get()) {
+            return true;
+        }
         synchronized (ClimateSampler.class) {
             if (now != budgetTick) {
                 budgetTick = now;
