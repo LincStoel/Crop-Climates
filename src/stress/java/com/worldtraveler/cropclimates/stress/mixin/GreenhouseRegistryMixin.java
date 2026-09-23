@@ -45,13 +45,34 @@ public abstract class GreenhouseRegistryMixin {
         Counters.cellsInFinishedScans += scan.visited();
     }
 
-    @Inject(method = "installRoom", at = @At("HEAD"))
+    // installRoom returns void on older code and whether anything changed once the reindex is
+    // incremental; one pair of hooks for each, whichever exists.
+    @Unique
+    private static final String INSTALL = "installRoom(Lcom/worldtraveler/cropclimates/greenhouse/Probe;"
+            + "Lcom/worldtraveler/cropclimates/greenhouse/RoomScan;J)";
+
+    @Inject(method = INSTALL + "V", at = @At("HEAD"), require = 0)
     private void cc$installHead(@Coerce Object anchor, RoomScan scan, long now, CallbackInfo ci) {
         cc$installStart = System.nanoTime();
     }
 
-    @Inject(method = "installRoom", at = @At("RETURN"))
+    @Inject(method = INSTALL + "V", at = @At("RETURN"), require = 0)
     private void cc$installReturn(@Coerce Object anchor, RoomScan scan, long now, CallbackInfo ci) {
+        cc$installDone();
+    }
+
+    @Inject(method = INSTALL + "Z", at = @At("HEAD"), require = 0)
+    private void cc$installHeadZ(@Coerce Object anchor, RoomScan scan, long now, CallbackInfoReturnable<Boolean> cir) {
+        cc$installStart = System.nanoTime();
+    }
+
+    @Inject(method = INSTALL + "Z", at = @At("RETURN"), require = 0)
+    private void cc$installReturnZ(@Coerce Object anchor, RoomScan scan, long now, CallbackInfoReturnable<Boolean> cir) {
+        cc$installDone();
+    }
+
+    @Unique
+    private static void cc$installDone() {
         long d = System.nanoTime() - cc$installStart;
         Counters.installs++;
         Counters.installNanos += d;
