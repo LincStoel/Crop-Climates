@@ -14,6 +14,7 @@ Needs the stress server running (gradlew runStressServer). World layout
     S5 churn       x 11000..11100
 """
 import json
+import re
 import sys
 import time
 
@@ -65,7 +66,7 @@ F_FIELDS = [
 DEFAULTS = {"growthFloor": 0.005, "growthMax": 1.25, "regressionEnabled": "true", "tempReadsPerTick": 12}
 
 
-def f1(s, seconds=120, rts=12):
+def f1(s, seconds=120, rts=12, treatment=(0.005, 1.25), name="F1"):
     """Growth-rate check: the same fields grown with every multiplier forced to 1.0 (control =
     vanilla speed) and with the real defaults (treatment); observed ratio vs predicted multiplier."""
     s.rules(0)
@@ -74,7 +75,7 @@ def f1(s, seconds=120, rts=12):
         biome(s, F_X, z, F_X + w - 1, z + F_DEPTH - 1, "minecraft:" + b)
     s.config("regressionEnabled", "false")
     reports = {}
-    for run, (floor, mx) in [("control", (1.0, 1.0)), ("treatment", (0.005, 1.25))]:
+    for run, (floor, mx) in [("control", (1.0, 1.0)), ("treatment", treatment)]:
         s.config("growthFloor", floor)
         s.config("growthMax", mx)
         s.c("gamerule randomTickSpeed 0", quiet=True)
@@ -85,7 +86,7 @@ def f1(s, seconds=120, rts=12):
             s.c(f"ccstress growth track {run}-{b} {F_X} {Y} {z} {F_X + w - 1} {Y + 3} {z + F_DEPTH - 1}")
         s.config("tempReadsPerTick", 12)
         s.c(f"gamerule randomTickSpeed {rts}", quiet=True)
-        s.window(f"F1-{run}", seconds)
+        s.window(f"{name}-{run}", seconds)
         s.c("gamerule randomTickSpeed 0", quiet=True)
         for b, *_ in F_FIELDS:
             reports[(run, b)] = s.json(f"ccstress growth report {run}-{b}")
@@ -105,14 +106,20 @@ def f1(s, seconds=120, rts=12):
             rows.append({"biome": b, "type": t, "plants": x["plants"], "controlUnits": c["units"],
                          "treatmentUnits": x["units"], "ratio": ratio, "firstEventRatio": fer,
                          "predicted": x.get("predictedMean"), "predictedUnavailable": x.get("predictedUnavailable")})
-    out = out_dir("F1-growth")
+    out = out_dir(f"{name}-growth")
     (out / "reports.json").write_text(json.dumps({f"{k[0]}-{k[1]}": v for k, v in reports.items()}, indent=1))
     (out / "summary.json").write_text(json.dumps(rows, indent=1))
-    log("F1 growth-rate check (observed treatment/control vs predicted):")
+    log(f"{name} growth-rate check (observed treatment/control vs predicted):")
     for r in rows:
         log(f"  {r['biome']:14} {r['type']:28} n={r['plants']:5} ctl={r['controlUnits']:8.0f} trt={r['treatmentUnits']:8.0f}"
             f" ratio={r['ratio']:.3f} first-event={r['firstEventRatio']:.3f} predicted={r['predicted']:.3f}")
     release(s, F_X, 0, F_X + 230, 360)
+
+
+def f1boost(s):
+    """Every multiplier forced to exactly 2.0: each plant type should grow at twice the control
+    rate (less where it tops out), so any path that loses the speed-up stands out."""
+    f1(s, treatment=(2.0, 2.0), name="F1boost")
 
 
 # ---------------------------------------------------- F2 greenhouse lifecycle
@@ -139,6 +146,12 @@ def wait_for(s, predicate, timeout=60.0, poll=0.25):
             return True, time.time() - t0
         time.sleep(poll)
     return False, time.time() - t0
+
+
+def filled(reply):
+    """Block count from a fill reply ("Successfully filled N block(s)"; "No blocks were filled" is 0)."""
+    m = re.search(r"filled (\d+) block", reply)
+    return int(m.group(1)) if m else 0
 
 
 def all_status(s, label, want):
@@ -314,10 +327,12 @@ def f3(s):
 
     # Sky penalty: stone roof vs glass roof.
     s.c(f"setblock {F3_X + 3} {Y + 3} 5 stone", quiet=True)
+    time.sleep(1.0)  # canSeeSky reads sky light, which the light engine updates a tick or two later
     under_stone = s.c(f"cropclimates explain {F3_X + 3} {Y + 1} 5", quiet=True)
     check("a stone roof costs the sky penalty (no sunlight mark)", "◯" in under_stone,
           [l for l in under_stone.splitlines() if "Sunlight" in l][:1])
     s.c(f"setblock {F3_X + 3} {Y + 3} 5 glass", quiet=True)
+    time.sleep(1.0)
     under_glass = s.c(f"cropclimates explain {F3_X + 3} {Y + 1} 5", quiet=True)
     check("a glass roof keeps sunlight", "☀" in under_glass, [l for l in under_glass.splitlines() if "Sunlight" in l][:1])
 
@@ -330,7 +345,18 @@ def f3(s):
     check("a hygrometer hung underwater can never make a greenhouse", status(s, "f3under")[0]["status"] == "TOO_SMALL",
           json.dumps(status(s, "f3under")))
 
-    # Regression: hostile desert crops lose stages; saplings go stage 1 -> 0 -> dead bush.
+    f3_regression(s)
+
+    out = out_dir("F3-rain-position")
+    (out / "checks.json").write_text(json.dumps(CHECKS, indent=1))
+    log(f"F3: {sum(c['ok'] for c in CHECKS)}/{len(CHECKS)} checks as expected")
+    release(s, F3_X - 16, -16, F3_X + 200, 100)
+
+
+# ------------------------------------------------------------- S1 big fields
+
+def f3_regression(s):
+    """Hostile desert crops lose stages; saplings go stage 1 -> 0 -> dead bush."""
     s.config("regressionChance", 1.0)
     s.c(f"ccstress build field f3reg {F3_X + 110} {Y} 0 40 20 wheat+cherry_sapling 5 20", quiet=True)
     s.c(f"fill {F3_X + 130} {Y + 1} 0 {F3_X + 149} {Y + 1} 19 cherry_sapling[stage=1] replace cherry_sapling", quiet=True)
@@ -341,23 +367,28 @@ def f3(s):
     time.sleep(20)
     s.c("gamerule randomTickSpeed 0", quiet=True)
     stats = s.json("ccstress stats")
-    dead = s.c(f"execute store result score @p dummy run fill {F3_X + 130} {Y + 1} 0 {F3_X + 149} {Y + 1} 19 dead_bush replace dead_bush",
-               quiet=True)
-    wheat5 = s.c(f"fill {F3_X + 110} {Y + 1} 0 {F3_X + 129} {Y + 1} 19 wheat[age=5] replace wheat[age=5]", quiet=True)
-    check("hostile crops lose stages", stats["counters"]["regressionsApplied"] > 0,
-          f"regressionsApplied={stats['counters']['regressionsApplied']} vetoes={stats['counters']['vetoes']}; wheat still at age 5: {wheat5.strip()}")
-    check("hostile saplings die back to dead bushes", "Successfully filled" in dead and not dead.strip().endswith(" 0 blocks"),
-          dead.strip())
+    # fill only counts blocks it changes, so these counts clear what they count (the test is over).
+    dead = filled(s.c(f"fill {F3_X + 130} {Y + 1} 0 {F3_X + 149} {Y + 1} 19 air replace dead_bush", quiet=True))
+    wheat = {age: filled(s.c(f"fill {F3_X + 110} {Y + 1} 0 {F3_X + 129} {Y + 1} 19 air replace wheat[age={age}]", quiet=True))
+             for age in range(8)}
+    check("hostile crops lose stages", stats["counters"]["regressionsApplied"] > 0 and sum(wheat[a] for a in range(5)) > 0,
+          f"regressionsApplied={stats['counters']['regressionsApplied']} vetoes={stats['counters']['vetoes']}; "
+          f"wheat by age (planted at 5): {wheat}")
+    check("hostile saplings die back to dead bushes", dead > 0, f"{dead} dead bushes where the stage-1 saplings stood")
     s.config("regressionChance", 0.02)
     s.c("gamerule randomTickSpeed 3", quiet=True)
 
-    out = out_dir("F3-rain-position")
-    (out / "checks.json").write_text(json.dumps(CHECKS, indent=1))
-    log(f"F3: {sum(c['ok'] for c in CHECKS)}/{len(CHECKS)} checks as expected")
-    release(s, F3_X - 16, -16, F3_X + 200, 100)
 
+def f3reg(s):
+    """Only the regression part of F3 (its own area and results folder)."""
+    s.rules(3)
+    CHECKS.clear()
+    force(s, F3_X + 100, -16, F3_X + 200, 100)
+    biome(s, F3_X + 100, -16, F3_X + 200, 100, "minecraft:desert")
+    f3_regression(s)
+    (out_dir("F3-regression") / "checks.json").write_text(json.dumps(CHECKS, indent=1))
+    release(s, F3_X + 100, -16, F3_X + 200, 100)
 
-# ------------------------------------------------------------- S1 big fields
 
 S1_X = 3000
 S1_TYPES = ("wheat+carrots+potatoes+beetroots+melon_stem+pumpkin_stem+sweet_berry+sugar_cane+oak_sapling+birch_sapling"
@@ -574,6 +605,26 @@ def s4(s):
     s.c("execute in minecraft:the_nether run ccstress ticket remove -160 -160 160 160")
 
 
+def s4steady(s, settle=1200):
+    """Eleven cave hygrometers left alone for `settle` seconds, then measured. Before the
+    backoff their retries ran on a fixed interval, so the first minutes were already the steady
+    state; with it they spread out up to 16x, which a window right after placing can't show."""
+    s.rules(3)
+    force(s, S4_X - 8, -8, S4_X + 136, 200)
+    s.c(f"ccstress build cave {S4_X} 0 0 120 40 120")
+    for i in range(10):
+        s.c(f"ccstress hang S4cave {S4_X} 3 {10 + i * 10} east", quiet=True)
+    log(f"S4 steady state: letting the retries settle for {settle}s")
+    time.sleep(settle)
+    s.c("ccstress stats reset", quiet=True)
+    s.window("S4-cave11-steady", 120)
+    lat = latency(s, "S4ref")
+    log(f"S4 steady-state reference latency: {lat}")
+    (out_dir("S4-cave11-steady") / "latency.json").write_text(json.dumps({"steady": lat}))
+    s.c(f"kill @e[type=crop_climates:hygrometer,x={S4_X},y=0,z=0,dx=10,dy=40,dz=130]")
+    release(s, S4_X - 8, -8, S4_X + 136, 200)
+
+
 # ------------------------------------------------------------------ S5 churn
 
 S5_X = 11000
@@ -657,7 +708,7 @@ def s7(s):
 
 SERVER_WORLD = RESULTS.parent / "server" / "world"
 
-SCENARIOS = {"s0": s0, "f1": f1, "f2": f2, "f3": f3, "s1": s1, "s2": s2, "s3": s3, "s4": s4, "s5": s5, "s6load": s6load, "s7": s7}
+SCENARIOS = {"s0": s0, "f1": f1, "f1boost": f1boost, "f2": f2, "f3": f3, "f3reg": f3reg, "s1": s1, "s2": s2, "s3": s3, "s4": s4, "s4steady": s4steady, "s5": s5, "s6load": s6load, "s7": s7}
 
 if __name__ == "__main__":
     session = Session()
