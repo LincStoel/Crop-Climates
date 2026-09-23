@@ -46,14 +46,21 @@ public final class Greenhouses {
         return get(serverLevel).roomAt(pos);
     }
 
-    /** From {@code LevelChunkMixin}, for every block that actually changed. */
+    /**
+     * From {@code LevelChunkMixin}, for every block that actually changed - in
+     * the middle of {@code LevelChunk.setBlockState}, so it must never throw.
+     */
     public static void onBlockChanged(Level level, BlockPos pos, BlockState oldState, BlockState newState) {
         if (!(level instanceof ServerLevel serverLevel) || !serverLevel.getServer().isSameThread()) {
             return;
         }
         GreenhouseRegistry registry = ACTIVE.get(serverLevel.dimension());
-        if (registry != null) {
-            registry.onBlockChanged(pos, oldState, newState, serverLevel.getGameTime());
+        if (registry != null && WorldCells.isAvailable()) {
+            try {
+                registry.onBlockChanged(pos, oldState, newState, serverLevel.getGameTime());
+            } catch (RuntimeException ex) {
+                WorldCells.fail(ex);
+            }
         }
     }
 

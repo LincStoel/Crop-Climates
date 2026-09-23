@@ -98,21 +98,34 @@ public final class Regression {
             return;
         }
         for (Pending wilt : pending) {
-            BlockState current = level.getBlockState(wilt.pos());
-            if (current != wilt.expected()) {
-                continue;
+            if (CropGrowHandlers.isDisabled()) {
+                return;
             }
-            BlockState next = regressed(level, wilt.pos(), current, wilt.tree());
-            if (next == null) {
-                continue;
+            // Runs at the end of the level tick: a modded plant that throws on
+            // setBlock counts against the error budget instead of crashing it.
+            try {
+                apply(level, wilt);
+            } catch (RuntimeException ex) {
+                CropGrowHandlers.fail("Regression.flush", ex);
             }
-            level.setBlock(wilt.pos(), next, next.is(current.getBlock()) ? Block.UPDATE_CLIENTS : Block.UPDATE_ALL);
-            level.sendParticles(wilt.cause().particle.get(),
-                    wilt.pos().getX() + 0.5, wilt.pos().getY() + 0.6, wilt.pos().getZ() + 0.5,
-                    10, 0.3, 0.25, 0.3, 0.0);
-            if (!next.is(current.getBlock())) {
-                level.playSound(null, wilt.pos(), SoundEvents.GRASS_BREAK, SoundSource.BLOCKS, 0.6F, 0.8F);
-            }
+        }
+    }
+
+    private static void apply(ServerLevel level, Pending wilt) {
+        BlockState current = level.getBlockState(wilt.pos());
+        if (current != wilt.expected()) {
+            return;
+        }
+        BlockState next = regressed(level, wilt.pos(), current, wilt.tree());
+        if (next == null) {
+            return;
+        }
+        level.setBlock(wilt.pos(), next, next.is(current.getBlock()) ? Block.UPDATE_CLIENTS : Block.UPDATE_ALL);
+        level.sendParticles(wilt.cause().particle.get(),
+                wilt.pos().getX() + 0.5, wilt.pos().getY() + 0.6, wilt.pos().getZ() + 0.5,
+                10, 0.3, 0.25, 0.3, 0.0);
+        if (!next.is(current.getBlock())) {
+            level.playSound(null, wilt.pos(), SoundEvents.GRASS_BREAK, SoundSource.BLOCKS, 0.6F, 0.8F);
         }
     }
 

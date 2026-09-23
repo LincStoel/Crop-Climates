@@ -250,7 +250,23 @@ public final class GreenhouseRegistry extends SavedData {
 
     // ------------------------------------------------------------- scheduling
 
+    /**
+     * The registry's per-tick work. Runs inside the level tick, so a failure
+     * here - a bug, or a modded block misbehaving under a scan - must not
+     * take the server down: it switches greenhouses off for the session
+     * instead, logged once, and crops fall back to outdoor humidity.
+     */
     public void tick(ServerLevel level) {
+        try {
+            tickGuarded(level);
+        } catch (RuntimeException ex) {
+            WorldCells.fail(ex);
+            activeScan = null;
+            activeProbe = null;
+        }
+    }
+
+    private void tickGuarded(ServerLevel level) {
         long now = level.getGameTime();
         if (now % PERIODIC_CHECK == 0) {
             periodic(level, now);
@@ -273,15 +289,7 @@ public final class GreenhouseRegistry extends SavedData {
                 continue; // joined a room without scanning
             }
             int before = activeScan.visited();
-            RoomScan.Status result;
-            try {
-                result = activeScan.step(budget);
-            } catch (RuntimeException ex) {
-                WorldCells.fail(ex);
-                activeScan = null;
-                activeProbe = null;
-                return;
-            }
+            RoomScan.Status result = activeScan.step(budget);
             budget -= Math.max(1, activeScan.visited() - before);
             if (result != RoomScan.Status.RUNNING) {
                 finish(level, activeProbe, activeScan, now);

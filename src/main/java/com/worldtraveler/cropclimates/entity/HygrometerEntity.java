@@ -1,5 +1,6 @@
 package com.worldtraveler.cropclimates.entity;
 
+import com.mojang.logging.LogUtils;
 import com.worldtraveler.cropclimates.CropClimates;
 import com.worldtraveler.cropclimates.climate.HumiditySource;
 import com.worldtraveler.cropclimates.climate.TemperatureUnits;
@@ -115,12 +116,26 @@ public class HygrometerEntity extends HangingEntity {
         if (!(event.getLevel() instanceof ServerLevel level) || event.getState().isSolid()) {
             return;
         }
-        for (HygrometerEntity hygrometer : level.getEntitiesOfClass(
-                HygrometerEntity.class, new AABB(event.getPos()).inflate(1.0))) {
-            if (!hygrometer.isRemoved() && !hygrometer.survives()) {
-                hygrometer.discard();
-                hygrometer.dropItem(null);
+        try {
+            for (HygrometerEntity hygrometer : level.getEntitiesOfClass(
+                    HygrometerEntity.class, new AABB(event.getPos()).inflate(1.0))) {
+                if (!hygrometer.isRemoved() && !hygrometer.survives()) {
+                    hygrometer.discard();
+                    hygrometer.dropItem(null);
+                }
             }
+        } catch (RuntimeException ex) {
+            // Vanilla's own 100-tick survival check still drops it later.
+            logOnce(ex);
+        }
+    }
+
+    private static volatile boolean loggedFailure;
+
+    private static void logOnce(RuntimeException ex) {
+        if (!loggedFailure) {
+            loggedFailure = true;
+            LogUtils.getLogger().warn("crop_climates: hygrometer update failed; further failures are not logged", ex);
         }
     }
 
@@ -169,7 +184,11 @@ public class HygrometerEntity extends HangingEntity {
     public void tick() {
         super.tick();
         if (level() instanceof ServerLevel serverLevel && !isRemoved() && tickCount % REFRESH_TICKS == 0) {
-            refresh(serverLevel);
+            try {
+                refresh(serverLevel);
+            } catch (RuntimeException ex) {
+                logOnce(ex);
+            }
         }
     }
 

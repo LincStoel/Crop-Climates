@@ -69,7 +69,8 @@ final class WorldCells implements RoomScan.Steps, RoomScan.Cells {
     static void fail(RuntimeException ex) {
         if (available) {
             available = false;
-            LOGGER.warn("crop_climates: Cold Sweat spread rule lookup failed, greenhouses disabled for this session", ex);
+            LOGGER.warn("crop_climates: greenhouse update failed, greenhouses disabled for this session "
+                    + "(crops use outdoor humidity until the server restarts)", ex);
         }
     }
 
