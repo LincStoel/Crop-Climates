@@ -2,11 +2,13 @@ package com.worldtraveler.cropclimates.stress;
 
 import com.google.gson.JsonObject;
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.ArgumentBuilder;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
+import com.worldtraveler.cropclimates.CropClimates;
 import com.worldtraveler.cropclimates.CropClimatesConfig;
 import com.worldtraveler.cropclimates.climate.ClimateSampler;
 import com.worldtraveler.cropclimates.entity.HygrometerEntity;
@@ -20,12 +22,20 @@ import com.worldtraveler.cropclimates.stress.net.StressNet;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.entity.EntityTypeTest;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.ModConfigSpec;
 import net.neoforged.neoforge.network.PacketDistributor;
 
@@ -178,6 +188,50 @@ public final class StressCommands {
             }
             return reply(ctx, Results.compact(arr));
         })));
+
+        // A player placing a hygrometer through the real item: clicks the given face of the block at x y z.
+        root.then(Commands.literal("use").then(Commands.argument("label", word()).then(Commands.argument("player", word())
+                .then(xyz(Commands.argument("face", word()).executes(ctx -> {
+                    ServerLevel level = ctx.getSource().getLevel();
+                    ServerPlayer player = ctx.getSource().getServer().getPlayerList().getPlayerByName(getString(ctx, "player"));
+                    if (player == null) {
+                        return reply(ctx, "no such player");
+                    }
+                    BlockPos wall = new BlockPos(getInteger(ctx, "x"), getInteger(ctx, "y"), getInteger(ctx, "z"));
+                    Direction face = Direction.byName(getString(ctx, "face"));
+                    ItemStack stack = new ItemStack(CropClimates.HYGROMETER.get());
+                    player.setItemInHand(InteractionHand.MAIN_HAND, stack);
+                    BlockHitResult hit = new BlockHitResult(Vec3.atCenterOf(wall).relative(face, 0.5), face, wall, false);
+                    InteractionResult result = stack.useOn(new UseOnContext(player, InteractionHand.MAIN_HAND, hit));
+                    List<HygrometerEntity> placed = level.getEntitiesOfClass(HygrometerEntity.class, new AABB(wall.relative(face)));
+                    if (placed.isEmpty()) {
+                        return reply(ctx, "use: " + result + ", nothing placed");
+                    }
+                    UUID id = placed.get(0).getUUID();
+                    Builders.BUILT.computeIfAbsent(getString(ctx, "label"), k -> new java.util.ArrayList<>())
+                            .add(new Builders.Greenhouse(0, 0, 0, 0, 0, 0, id));
+                    Builders.persist();
+                    return reply(ctx, String.valueOf(id));
+                }))))));
+
+        // A player right-clicking (sneak false) or shift-right-clicking (sneak true) a hygrometer.
+        root.then(Commands.literal("interact").then(Commands.argument("label", word()).then(Commands.argument("index", integer(0))
+                .then(Commands.argument("player", word()).then(Commands.argument("sneak", BoolArgumentType.bool()).executes(ctx -> {
+                    ServerPlayer player = ctx.getSource().getServer().getPlayerList().getPlayerByName(getString(ctx, "player"));
+                    if (player == null) {
+                        return reply(ctx, "no such player");
+                    }
+                    UUID id = Builders.BUILT.get(getString(ctx, "label")).get(getInteger(ctx, "index")).hygrometer();
+                    if (!(ctx.getSource().getLevel().getEntity(id) instanceof HygrometerEntity hygrometer)) {
+                        return reply(ctx, "hygrometer not loaded");
+                    }
+                    player.setShiftKeyDown(BoolArgumentType.getBool(ctx, "sneak"));
+                    try {
+                        return reply(ctx, "interact: " + hygrometer.interact(player, InteractionHand.MAIN_HAND));
+                    } finally {
+                        player.setShiftKeyDown(false);
+                    }
+                }))))));
 
         root.then(Commands.literal("hang").then(Commands.argument("label", word()).then(xyz(Commands.argument("facing", word())
                 .executes(ctx -> {

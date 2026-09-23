@@ -15,6 +15,7 @@ the `stressServer` / `stressClient` runs.
 | `tools/stress/scenarios.py` | The scenarios (`python tools/stress/scenarios.py s1 s2 ...`) |
 | `tools/stress/client_session.py` | Launches the stress client and flies StressBot through the built scenarios: FPS/particle CSV, screenshots, Alt tooltips |
 | `tools/stress/collect.py` | Gathers every results folder into one `collected.json` |
+| `tools/stress/parking_check.py` | With the stress client, checks too-large parking, the size ceiling and the height clamp (`restart` mode after a server restart) |
 | `tools/stress/SparkSummary.java` | Decodes `.sparkprofile` files locally with spark's own proto classes |
 
 ## Workflow

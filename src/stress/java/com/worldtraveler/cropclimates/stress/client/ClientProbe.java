@@ -13,6 +13,7 @@ import net.minecraft.world.item.TooltipFlag;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.client.event.ClientChatReceivedEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 
 import java.io.IOException;
@@ -27,7 +28,8 @@ import java.util.Locale;
  * Client half of the harness: once a second it appends FPS, particle count
  * and position to {@code stress-client.csv}; on instruction from the server
  * it takes a screenshot or captures an item's tooltip lines (with Alt forced
- * down, see {@code ScreenMixin}) into {@code stress-tooltips.txt}.
+ * down, see {@code ScreenMixin}) into {@code stress-tooltips.txt}. Every
+ * system chat line and action-bar message goes to {@code stress-chat.txt}.
  */
 @EventBusSubscriber(modid = StressMod.MOD_ID, value = Dist.CLIENT)
 public final class ClientProbe {
@@ -49,6 +51,12 @@ public final class ClientProbe {
                 mc.getFps(), mc.particleEngine.countParticles(), mc.player.getX(), mc.player.getY(), mc.player.getZ(),
                 mc.levelRenderer.getEntityStatistics().replace(',', ' '));
         append("stress-client.csv", line);
+    }
+
+    @SubscribeEvent
+    public static void onSystemChat(ClientChatReceivedEvent.System event) {
+        append("stress-chat.txt", (event.isOverlay() ? "[overlay] " : "[chat] ") + event.getMessage().getString()
+                + java.lang.System.lineSeparator());
     }
 
     public static void handle(StressNet.Instruct payload) {
