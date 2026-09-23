@@ -3,6 +3,7 @@ package com.worldtraveler.cropclimates.client;
 import com.worldtraveler.cropclimates.CropClimates;
 import com.worldtraveler.cropclimates.climate.TemperatureUnits;
 import com.worldtraveler.cropclimates.net.ClimateSyncPayload;
+import com.worldtraveler.cropclimates.net.SyncedBands;
 import com.worldtraveler.cropclimates.net.VerdictPayloads;
 import com.worldtraveler.cropclimates.report.Verdict;
 import net.minecraft.ChatFormatting;
@@ -13,6 +14,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.level.block.Block;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -21,6 +23,8 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -60,6 +64,11 @@ public final class CropTooltips {
                 BuiltInRegistries.ITEM.getOptional(entry.getKey()).ifPresent(item -> resolved.put(item, entry.getValue()));
             }
             BANDS = Map.copyOf(resolved);
+            Set<Block> blocks = new HashSet<>();
+            for (ResourceLocation id : payload.blocks()) {
+                BuiltInRegistries.BLOCK.getOptional(id).ifPresent(blocks::add);
+            }
+            SyncedBands.set(blocks);
             VERDICTS.clear();
         });
     }

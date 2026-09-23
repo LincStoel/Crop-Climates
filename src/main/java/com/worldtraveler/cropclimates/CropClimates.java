@@ -24,6 +24,7 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.level.block.Block;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
@@ -47,7 +48,9 @@ import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 @Mod(CropClimates.MOD_ID)
 public final class CropClimates {
@@ -134,7 +137,7 @@ public final class CropClimates {
     }
 
     private void registerPayloads(RegisterPayloadHandlersEvent event) {
-        var registrar = event.registrar(MOD_ID).versioned("3");
+        var registrar = event.registrar(MOD_ID).versioned("4");
         // Lambdas, not method references: CropTooltips is client-only and must
         // not be loaded on a dedicated server just by registering its handlers.
         registrar.playToClient(ClimateSyncPayload.TYPE, ClimateSyncPayload.STREAM_CODEC,
@@ -172,6 +175,10 @@ public final class CropClimates {
             bands.put(BuiltInRegistries.ITEM.getKey(entry.getKey()),
                     new ClimateSyncPayload.TipBand(band.tempLo(), band.tempHi(), band.moistLo(), band.moistHi(), band.tree(), band.aquatic()));
         }
-        return new ClimateSyncPayload(bands);
+        Set<ResourceLocation> blocks = new HashSet<>();
+        for (Block block : ClimateBands.blockBands().keySet()) {
+            blocks.add(BuiltInRegistries.BLOCK.getKey(block));
+        }
+        return new ClimateSyncPayload(bands, blocks);
     }
 }

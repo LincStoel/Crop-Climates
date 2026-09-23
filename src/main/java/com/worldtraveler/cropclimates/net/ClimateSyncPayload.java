@@ -9,14 +9,20 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Server -> client band table, sent on {@code OnDatapackSyncEvent} (login and
  * {@code /reload}), so the client never reads datapacks itself. Correct on
  * dedicated servers and for packs that override the data.
+ *
+ * @param bands  tooltip bands by item
+ * @param blocks every block with a band, so Jade only asks about those
  */
-public record ClimateSyncPayload(Map<ResourceLocation, TipBand> bands) implements CustomPacketPayload {
+public record ClimateSyncPayload(Map<ResourceLocation, TipBand> bands, Set<ResourceLocation> blocks)
+        implements CustomPacketPayload {
 
     /**
      * Everything {@code CropTooltips} needs: rounded bands plus the tree and
@@ -42,6 +48,8 @@ public record ClimateSyncPayload(Map<ResourceLocation, TipBand> bands) implement
     public static final StreamCodec<RegistryFriendlyByteBuf, ClimateSyncPayload> STREAM_CODEC = StreamCodec.composite(
             ByteBufCodecs.map(HashMap::new, ResourceLocation.STREAM_CODEC, TipBand.STREAM_CODEC),
             ClimateSyncPayload::bands,
+            ByteBufCodecs.collection(HashSet::new, ResourceLocation.STREAM_CODEC),
+            ClimateSyncPayload::blocks,
             ClimateSyncPayload::new
     );
 

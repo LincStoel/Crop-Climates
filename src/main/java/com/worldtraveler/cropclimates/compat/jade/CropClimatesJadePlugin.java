@@ -5,6 +5,7 @@ import com.worldtraveler.cropclimates.CropClimatesConfig;
 import com.worldtraveler.cropclimates.entity.HygrometerEntity;
 import com.worldtraveler.cropclimates.greenhouse.GreenhouseStatus;
 import com.worldtraveler.cropclimates.growth.GrowthGovernor;
+import com.worldtraveler.cropclimates.net.SyncedBands;
 import com.worldtraveler.cropclimates.report.ClimateReport;
 import com.worldtraveler.cropclimates.report.Verdict;
 import net.minecraft.ChatFormatting;
@@ -14,6 +15,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.GrowingPlantBodyBlock;
 import snownee.jade.api.BlockAccessor;
 import snownee.jade.api.EntityAccessor;
 import snownee.jade.api.IBlockComponentProvider;
@@ -71,6 +73,17 @@ public final class CropClimatesJadePlugin implements IWailaPlugin {
             }
         }
 
+        /**
+         * Registered for every block, so without this Jade asks the server about
+         * each block the player looks at. Only banded plants - and the body of a
+         * vine or kelp stalk, which reads its head - can have a verdict.
+         */
+        @Override
+        public boolean shouldRequestData(BlockAccessor accessor) {
+            Block block = accessor.getBlock();
+            return SyncedBands.has(block) || block instanceof GrowingPlantBodyBlock;
+        }
+
         @Override
         public void appendTooltip(ITooltip tooltip, BlockAccessor accessor, IPluginConfig config) {
             CompoundTag data = accessor.getServerData();
@@ -86,9 +99,8 @@ public final class CropClimatesJadePlugin implements IWailaPlugin {
     }
 
     /**
-     * The server sends the hygrometer's current reading with the Jade request,
-     * so the tooltip is right even before the entity's own synced values
-     * refresh; the synced values are the fallback.
+     * The hygrometer's reading, as its entity last synced it (refreshed once a
+     * second); the server copy wins when Jade's server data has arrived.
      */
     enum Hygrometer implements IEntityComponentProvider, IServerDataProvider<EntityAccessor> {
         INSTANCE;
