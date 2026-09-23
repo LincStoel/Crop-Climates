@@ -45,3 +45,6 @@ bin/
 .DS_Store
 logs/
 .idea/
+
+run-stress/
+__pycache__/

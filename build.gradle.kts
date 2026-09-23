@@ -27,6 +27,10 @@ val coldSweatJar = providers.gradleProperty("coldSweatJar")
 val jadeJar = providers.gradleProperty("jadeJar")
     .orElse("libs/Jade-1.21.1-NeoForge-15.10.6.jar")
 
+// Dev-only stress harness (see tools/stress/README.md): a second mod that the
+// stress runs load alongside crop_climates. It is never part of the jar.
+val stress: SourceSet = sourceSets.create("stress")
+
 neoForge {
     version = "21.1.248"
 
@@ -35,25 +39,50 @@ neoForge {
         minecraftVersion = "1.21.1"
     }
 
-    runs {
-        create("client") {
-            client()
-        }
-        create("server") {
-            server()
-        }
-    }
-
     mods {
         create("crop_climates") {
             sourceSet(sourceSets.main.get())
         }
+        create("crop_climates_stress") {
+            sourceSet(stress)
+        }
     }
+
+    runs {
+        create("client") {
+            client()
+            loadedMods = setOf(mods["crop_climates"])
+        }
+        create("server") {
+            server()
+            loadedMods = setOf(mods["crop_climates"])
+        }
+        create("stressServer") {
+            server()
+            gameDirectory = layout.projectDirectory.dir("run-stress/server")
+            sourceSet = stress
+            loadedMods = setOf(mods["crop_climates"], mods["crop_climates_stress"])
+            programArgument("--nogui")
+            jvmArguments.addAll("-Xms4G", "-Xmx8G")
+        }
+        create("stressClient") {
+            client()
+            gameDirectory = layout.projectDirectory.dir("run-stress/client")
+            sourceSet = stress
+            loadedMods = setOf(mods["crop_climates"], mods["crop_climates_stress"])
+            programArguments.addAll("--quickPlayMultiplayer", "localhost:25565", "--username", "StressBot")
+        }
+    }
+
+    addModdingDependenciesTo(stress)
 }
 
 dependencies {
     compileOnly(files(coldSweatJar.get()))
     compileOnly(files(jadeJar.get()))
+
+    "stressImplementation"(sourceSets.main.get().output)
+    "stressCompileOnly"(files(coldSweatJar.get()))
 
     testImplementation(platform("org.junit:junit-bom:6.0.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
