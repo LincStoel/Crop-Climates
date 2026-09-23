@@ -12,13 +12,12 @@ Results: run-stress/results/F4-parking/checks.json.
 """
 import json
 import re
-import subprocess
 import sys
 import time
 
-from harness import Session, log, ROOT, RESULTS, SERVER, out_dir
+from harness import Session, log, SERVER, out_dir
 from scenarios import force, status, wait_for, S4_X, Y
-from client_session import wait_player, BOT, CLIENT
+from client_session import BOT, CLIENT, launch, leave
 
 CHAT = CLIENT / "stress-chat.txt"
 TOO_LARGE = "too large for a greenhouse"
@@ -61,13 +60,9 @@ def start_client(s):
     """Launches the stress client and waits for StressBot; returns the process, or None."""
     if CHAT.exists():
         CHAT.unlink()
-    proc = subprocess.Popen(["cmd", "/c", str(ROOT / "gradlew.bat"), "runStressClient", "--console=plain"], cwd=str(ROOT),
-                            stdout=open(RESULTS / "client-gradle.log", "w"), stderr=subprocess.STDOUT)
-    log("client launched, waiting for StressBot")
-    if not wait_player(s):
-        log("! StressBot never joined; see run-stress/results/client-gradle.log")
+    proc = launch(s)
+    if proc is None:
         return None
-    time.sleep(10)
     s.rules(3)
     s.c(f"gamemode creative {BOT}")
     s.c(f"tp {BOT} {S4_X + 10} 5 30")
@@ -76,9 +71,7 @@ def start_client(s):
 
 
 def stop_client(s, proc):
-    s.c(f"kick {BOT} parking check over")
-    time.sleep(5)
-    proc.terminate()
+    leave(s, proc)
     log(f"parking check: {sum(c['ok'] for c in CHECKS)}/{len(CHECKS)} passed")
 
 

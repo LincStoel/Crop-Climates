@@ -30,6 +30,24 @@ def wait_player(s, timeout=600):
     return False
 
 
+def launch(s):
+    """Launches the stress client and waits for StressBot to join; returns the process, or None."""
+    proc = subprocess.Popen(["cmd", "/c", str(ROOT / "gradlew.bat"), "runStressClient", "--console=plain"], cwd=str(ROOT),
+                            stdout=open(RESULTS / "client-gradle.log", "w"), stderr=subprocess.STDOUT)
+    log("client launched, waiting for StressBot")
+    if not wait_player(s):
+        log("! StressBot never joined; see run-stress/results/client-gradle.log")
+        return None
+    time.sleep(10)
+    return proc
+
+
+def leave(s, proc):
+    s.c(f"kick {BOT} stress session over")
+    time.sleep(5)
+    proc.terminate()
+
+
 def station(s, name, x, y, z, yaw, pitch, settle=12, measure=20, shot=True):
     s.c(f"tp {BOT} {x} {y} {z} {yaw} {pitch}", quiet=True)
     # The client drops flight whenever it touches ground; turned on in mid-air, it holds.
@@ -98,13 +116,9 @@ def tooltips(s):
 def main():
     only = sys.argv[1] if len(sys.argv) > 1 else "all"
     s = Session()
-    proc = subprocess.Popen(["cmd", "/c", str(ROOT / "gradlew.bat"), "runStressClient", "--console=plain"], cwd=str(ROOT),
-                            stdout=open(RESULTS / "client-gradle.log", "w"), stderr=subprocess.STDOUT)
-    log("client launched, waiting for StressBot")
-    if not wait_player(s):
-        log("! StressBot never joined; see run-stress/results/client-gradle.log")
+    proc = launch(s)
+    if proc is None:
         return
-    time.sleep(10)
     s.rules(3)
     s.c(f"gamemode creative {BOT}")
     s.c(f"ccstress fly {BOT}")
@@ -112,9 +126,7 @@ def main():
     if only == "all":
         tour(s)
     tooltips(s)
-    s.c(f"kick {BOT} stress session over")
-    time.sleep(5)
-    proc.terminate()
+    leave(s, proc)
     log("client session done")
 
 

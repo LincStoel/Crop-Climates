@@ -30,6 +30,7 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.entity.EntityTypeTest;
@@ -212,6 +213,43 @@ public final class StressCommands {
                             .add(new Builders.Greenhouse(0, 0, 0, 0, 0, 0, id));
                     Builders.persist();
                     return reply(ctx, String.valueOf(id));
+                }))))));
+
+        // A player using any item on a face of the block at x y z (planting seeds, the Soil Tester).
+        root.then(Commands.literal("useitem").then(Commands.argument("player", word()).then(Commands.argument("item",
+                        net.minecraft.commands.arguments.ResourceLocationArgument.id())
+                .then(xyz(Commands.argument("face", word()).executes(ctx -> {
+                    ServerPlayer player = ctx.getSource().getServer().getPlayerList().getPlayerByName(getString(ctx, "player"));
+                    if (player == null) {
+                        return reply(ctx, "no such player");
+                    }
+                    ItemStack stack = new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.get(
+                            net.minecraft.commands.arguments.ResourceLocationArgument.getId(ctx, "item")));
+                    player.setItemInHand(InteractionHand.MAIN_HAND, stack);
+                    BlockPos block = new BlockPos(getInteger(ctx, "x"), getInteger(ctx, "y"), getInteger(ctx, "z"));
+                    Direction face = Direction.byName(getString(ctx, "face"));
+                    BlockHitResult hit = new BlockHitResult(Vec3.atCenterOf(block).relative(face, 0.5), face, block, false);
+                    return reply(ctx, "useitem: " + stack.useOn(new UseOnContext(player, InteractionHand.MAIN_HAND, hit)));
+                }))))));
+
+        // A player using an item on the nearest player or mob within 4 blocks of x y z.
+        root.then(Commands.literal("useentity").then(Commands.argument("player", word()).then(Commands.argument("item",
+                        net.minecraft.commands.arguments.ResourceLocationArgument.id())
+                .then(xyz(Commands.literal("go").executes(ctx -> {
+                    ServerPlayer player = ctx.getSource().getServer().getPlayerList().getPlayerByName(getString(ctx, "player"));
+                    if (player == null) {
+                        return reply(ctx, "no such player");
+                    }
+                    Vec3 at = new Vec3(getInteger(ctx, "x") + 0.5, getInteger(ctx, "y"), getInteger(ctx, "z") + 0.5);
+                    LivingEntity target = ctx.getSource().getLevel()
+                            .getEntitiesOfClass(LivingEntity.class, new AABB(at, at).inflate(4), e -> e != player)
+                            .stream().min(java.util.Comparator.comparingDouble(e -> e.distanceToSqr(at))).orElse(null);
+                    if (target == null) {
+                        return reply(ctx, "no entity near " + at);
+                    }
+                    player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.get(
+                            net.minecraft.commands.arguments.ResourceLocationArgument.getId(ctx, "item"))));
+                    return reply(ctx, "useentity " + target.getName().getString() + ": " + player.interactOn(target, InteractionHand.MAIN_HAND));
                 }))))));
 
         // A player right-clicking (sneak false) or shift-right-clicking (sneak true) a hygrometer.
