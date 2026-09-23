@@ -223,7 +223,7 @@ public final class GreenhouseRegistry extends SavedData {
      * Re-reads a hygrometer's room now: shift-right-clicking one asks for
      * this, and it is the only thing that wakes a hygrometer parked as too
      * large. {@code player}, if given, is told when the scan finds the space
-     * too large for a greenhouse.
+     * too large or too small for a greenhouse.
      */
     public void requestScan(UUID id, long now, @Nullable UUID player) {
         request(id, now, player, false);
@@ -232,7 +232,7 @@ public final class GreenhouseRegistry extends SavedData {
     /**
      * A player just hung this hygrometer. Its first scan is theirs to hear
      * about: the hygrometer report when it seals or joins a greenhouse, the
-     * too-large message when it cannot.
+     * too-large or too-small message when it cannot.
      */
     public void placedBy(UUID id, UUID player, long now) {
         request(id, now, player, true);
@@ -529,7 +529,12 @@ public final class GreenhouseRegistry extends SavedData {
             } else {
                 leaveRoom(probe, true);
             }
-            probe.status = result == RoomScan.Status.TOO_SMALL ? GreenhouseStatus.TOO_SMALL : GreenhouseStatus.OUTDOOR;
+            if (result == RoomScan.Status.TOO_SMALL) {
+                probe.status = GreenhouseStatus.TOO_SMALL;
+                tellTooSmall(level, notify);
+            } else {
+                probe.status = GreenhouseStatus.OUTDOOR;
+            }
             // Outdoor and too-small retries stay prompt - they are cheap, and a
             // player closing a room up expects it to become a greenhouse.
             probe.misses = 0;
@@ -559,6 +564,15 @@ public final class GreenhouseRegistry extends SavedData {
         if (target != null) {
             target.sendSystemMessage(ClimateReport.key("hygrometer.too_large_message",
                     ClimateReport.value(CropClimatesConfig.greenhouseMaxVolume())).withStyle(ChatFormatting.YELLOW));
+        }
+    }
+
+    /** Tells the player who placed or rescanned a hygrometer that its space is too small for a greenhouse. */
+    private static void tellTooSmall(ServerLevel level, @Nullable UUID player) {
+        ServerPlayer target = player == null ? null : level.getServer().getPlayerList().getPlayer(player);
+        if (target != null) {
+            target.sendSystemMessage(ClimateReport.key("hygrometer.too_small_message",
+                    ClimateReport.value(CropClimatesConfig.GREENHOUSE_MIN_VOLUME.get())).withStyle(ChatFormatting.YELLOW));
         }
     }
 

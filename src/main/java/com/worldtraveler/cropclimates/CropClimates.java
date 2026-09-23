@@ -20,6 +20,7 @@ import net.minecraft.core.particles.SimpleParticleType;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
@@ -31,6 +32,7 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
+import net.neoforged.fml.event.config.ModConfigEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.AddReloadListenerEvent;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
@@ -48,6 +50,7 @@ import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
+import net.neoforged.neoforge.server.ServerLifecycleHooks;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -88,6 +91,8 @@ public final class CropClimates {
 
     public CropClimates(IEventBus modBus, ModContainer container) {
         container.registerConfig(ModConfig.Type.SERVER, CropClimatesConfig.SPEC);
+        modBus.addListener(ModConfigEvent.Loading.class, this::onConfigChanged);
+        modBus.addListener(ModConfigEvent.Reloading.class, this::onConfigChanged);
 
         ITEMS.register(modBus);
         ENTITY_TYPES.register(modBus);
@@ -140,6 +145,27 @@ public final class CropClimates {
             ClimateBands.resolve();
             BiomeMoisture.invalidate();
         }
+    }
+
+    /**
+     * Re-applies the block blacklist. The first band resolution runs before a
+     * server's config loads, and an edited config reloads on a file-watcher
+     * thread, so this hands the work to the server thread and then re-syncs
+     * the players' tooltips.
+     */
+    private void onConfigChanged(ModConfigEvent event) {
+        if (event.getConfig().getSpec() != CropClimatesConfig.SPEC) {
+            return;
+        }
+        MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+        if (server == null) {
+            return;
+        }
+        server.execute(() -> {
+            ClimateBands.resolve();
+            ClimateSyncPayload payload = buildSyncPayload();
+            server.getPlayerList().getPlayers().forEach(player -> PacketDistributor.sendToPlayer(player, payload));
+        });
     }
 
     private void registerPayloads(RegisterPayloadHandlersEvent event) {

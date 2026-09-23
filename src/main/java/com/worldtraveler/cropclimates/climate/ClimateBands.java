@@ -5,6 +5,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mojang.logging.LogUtils;
 import com.mojang.serialization.JsonOps;
+import com.worldtraveler.cropclimates.CropClimatesConfig;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderSet;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -52,6 +53,10 @@ import java.util.Set;
  * stores the parsed entries. {@link #resolve} binds them to blocks once the
  * server's tags are live ({@code TagsUpdatedEvent}), which also runs before
  * the datapack sync that feeds client tooltips.
+ *
+ * <p>Blocks on the config's blacklist are dropped here, so they get no band
+ * and nothing in the mod governs, wilts or reports on them. The blacklist is
+ * re-applied whenever the server config loads or changes.
  */
 public final class ClimateBands extends SimplePreparableReloadListener<List<ClimateBands.Parsed>> {
 
@@ -67,6 +72,7 @@ public final class ClimateBands extends SimplePreparableReloadListener<List<Clim
     private static volatile Set<Block> SAPLINGS = Set.of();
     private static volatile Set<Block> OWN_TICK = Set.of();
     private static volatile Map<Item, ClimateBand> ITEM_BANDS = Map.of();
+    private static volatile Set<Block> BLACKLISTED = Set.of();
 
     public static ClimateBand bandFor(Block block) {
         return BLOCK_BANDS.get(block);
@@ -86,6 +92,11 @@ public final class ClimateBands extends SimplePreparableReloadListener<List<Clim
 
     public static Map<Block, ClimateBand> blockBands() {
         return BLOCK_BANDS;
+    }
+
+    /** Whether the config's blacklist excludes {@code block} from the mod. */
+    public static boolean isBlacklisted(Block block) {
+        return BLACKLISTED.contains(block);
     }
 
     @Override
@@ -182,6 +193,14 @@ public final class ClimateBands extends SimplePreparableReloadListener<List<Clim
             }
         }
 
+        Set<Block> blacklisted = blacklistedBlocks();
+        int excluded = 0;
+        for (Block block : blacklisted) {
+            if (winners.remove(block) != null) {
+                excluded++;
+            }
+        }
+
         Set<Block> saplings = new HashSet<>();
         Set<Block> ownTick = new HashSet<>();
         Map<Item, String> itemToShortestBlockId = new HashMap<>();
@@ -215,9 +234,31 @@ public final class ClimateBands extends SimplePreparableReloadListener<List<Clim
         SAPLINGS = Set.copyOf(saplings);
         OWN_TICK = Set.copyOf(ownTick);
         ITEM_BANDS = Map.copyOf(itemBands);
+        BLACKLISTED = Set.copyOf(blacklisted);
 
-        LOGGER.info("crop_climates: loaded {} plants ({} saplings, {} own-tick), {} skipped (no matching block)",
-                blockBands.size(), saplings.size(), ownTick.size(), skipped);
+        LOGGER.info("crop_climates: loaded {} plants ({} saplings, {} own-tick), {} skipped (no matching block), {} blacklisted",
+                blockBands.size(), saplings.size(), ownTick.size(), skipped, excluded);
+    }
+
+    /** The config blacklist's blocks: ids, and the members of {@code #tag} entries. */
+    private static Set<Block> blacklistedBlocks() {
+        Set<Block> blocks = new HashSet<>();
+        for (String entry : CropClimatesConfig.blacklist()) {
+            boolean tag = entry.startsWith("#");
+            ResourceLocation id = ResourceLocation.tryParse(tag ? entry.substring(1) : entry);
+            if (id == null) {
+                continue;
+            }
+            if (tag) {
+                BuiltInRegistries.BLOCK.getTag(TagKey.create(Registries.BLOCK, id)).ifPresentOrElse(
+                        members -> members.forEach(holder -> blocks.add(holder.value())),
+                        () -> LOGGER.warn("crop_climates: blacklist tag #{} is empty or unknown", id));
+            } else {
+                BuiltInRegistries.BLOCK.getOptional(id).ifPresentOrElse(blocks::add,
+                        () -> LOGGER.warn("crop_climates: blacklist entry {} is not a block", id));
+            }
+        }
+        return blocks;
     }
 
     /**

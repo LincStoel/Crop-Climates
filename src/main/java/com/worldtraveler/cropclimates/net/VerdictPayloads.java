@@ -25,7 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * The Alt tooltip's "Here: would thrive" line. The client asks about one item;
  * the server scores that item's band at the player's feet through the same
  * {@link GrowthGovernor} path crops use - cached temperature, greenhouse
- * lookup - and answers with the verdict tier plus where the humidity came
+ * lookup - and answers with the verdict tier and its configured wording, plus where the humidity came
  * from ({@link Where}) and its value, so the player can see a greenhouse is
  * being counted. The client throttles and caches; the server additionally
  * caps each player's request rate.
@@ -59,8 +59,10 @@ public final class VerdictPayloads {
     /**
      * @param where    a {@link Where} ordinal (meaningless when {@code verdict} is {@link #UNKNOWN})
      * @param humidity the humidity the band was scored against, in whole percent
+     * @param label    the verdict's configured tooltip phrase ("would thrive"); empty when {@code verdict} is {@link #UNKNOWN}
      */
-    public record Response(ResourceLocation item, int verdict, int where, int humidity) implements CustomPacketPayload {
+    public record Response(ResourceLocation item, int verdict, int where, int humidity, String label)
+            implements CustomPacketPayload {
         public static final Type<Response> TYPE =
                 new Type<>(ResourceLocation.fromNamespaceAndPath(CropClimates.MOD_ID, "verdict_response"));
         public static final StreamCodec<ByteBuf, Response> STREAM_CODEC = StreamCodec.composite(
@@ -68,6 +70,7 @@ public final class VerdictPayloads {
                 ByteBufCodecs.VAR_INT, Response::verdict,
                 ByteBufCodecs.VAR_INT, Response::where,
                 ByteBufCodecs.VAR_INT, Response::humidity,
+                ByteBufCodecs.STRING_UTF8, Response::label,
                 Response::new);
 
         @Override
@@ -96,7 +99,7 @@ public final class VerdictPayloads {
     }
 
     private static Response verdictFor(ServerPlayer player, ResourceLocation itemId) {
-        Response unknown = new Response(itemId, UNKNOWN, 0, 0);
+        Response unknown = new Response(itemId, UNKNOWN, 0, 0, "");
         ClimateBand band = BuiltInRegistries.ITEM.getOptional(itemId).map(ClimateBands.itemBands()::get).orElse(null);
         if (band == null) {
             return unknown;
@@ -113,8 +116,9 @@ public final class VerdictPayloads {
             case ENCLOSED -> Where.GREENHOUSE;
             case NONE -> conditions.raining() ? Where.RAINING : Where.OUTDOOR;
         };
-        return new Response(itemId, Verdict.of(total, CropClimatesConfig.GROWTH_MAX.get()).ordinal(),
-                where.ordinal(), (int) Math.round(conditions.humidity() * 100));
+        Verdict verdict = Verdict.of(total, CropClimatesConfig.GROWTH_MAX.get());
+        return new Response(itemId, verdict.ordinal(), where.ordinal(), (int) Math.round(conditions.humidity() * 100),
+                verdict.tooltipText());
     }
 
     public static void forget(UUID player) {

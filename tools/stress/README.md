@@ -16,6 +16,7 @@ the `stressServer` / `stressClient` runs.
 | `tools/stress/client_session.py` | Launches the stress client and flies StressBot through the built scenarios: FPS/particle CSV, screenshots, Alt tooltips |
 | `tools/stress/collect.py` | Gathers every results folder into one `collected.json` |
 | `tools/stress/advancement_check.py` | With the stress client, revokes and earns each advancement through the real code paths, thresholds included |
+| `tools/stress/blacklist_check.py` | With the stress client, edits the `[blacklist]` in the server toml live and checks a blacklisted crop leaves explain, growth, wilting, advancements, the Alt tooltip and Jade (screenshots), by id and by tag |
 | `tools/stress/parking_check.py` | With the stress client, checks too-large parking, the size ceiling and the height clamp (`restart` mode after a server restart) |
 | `tools/stress/SparkSummary.java` | Decodes `.sparkprofile` files locally with spark's own proto classes |
 

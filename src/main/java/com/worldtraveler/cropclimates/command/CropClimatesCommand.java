@@ -82,7 +82,7 @@ public final class CropClimatesCommand {
         Map<String, List<String>> missing = new TreeMap<>();
         int total = 0;
         for (Block block : BuiltInRegistries.BLOCK) {
-            if (!looksGrowable(block) || ClimateBands.bandFor(block) != null) {
+            if (!looksGrowable(block) || ClimateBands.bandFor(block) != null || ClimateBands.isBlacklisted(block)) {
                 continue;
             }
             ResourceLocation id = BuiltInRegistries.BLOCK.getKey(block);

@@ -37,6 +37,7 @@ import java.util.concurrent.ThreadLocalRandom;
 public class SoilTesterItem extends Item {
 
     private static final int DEAD_BROWN = 0x8B5A2B;
+    private static final int COOLDOWN_TICKS = 20;
 
     public SoilTesterItem(Properties properties) {
         super(properties);
@@ -47,8 +48,12 @@ public class SoilTesterItem extends Item {
         Level level = context.getLevel();
         Player player = context.getPlayer();
         if (!level.isClientSide() && player != null) {
+            if (player.getCooldowns().isOnCooldown(this)) {
+                return InteractionResult.PASS;
+            }
             BlockPos clicked = context.getClickedPos();
             report(level, player, clicked);
+            player.getCooldowns().addCooldown(this, COOLDOWN_TICKS);
             BlockPos plant = GrowthGovernor.growingEnd(level, clicked);
             if (player instanceof ServerPlayer serverPlayer && ClimateBands.bandFor(level.getBlockState(plant).getBlock()) != null) {
                 CropAdvancements.award(serverPlayer, CropAdvancements.SOILED_IT);
@@ -79,10 +84,14 @@ public class SoilTesterItem extends Item {
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         if (!level.isClientSide()) {
+            if (player.getCooldowns().isOnCooldown(this)) {
+                return InteractionResultHolder.pass(player.getItemInHand(hand));
+            }
             // No block was targeted - read the open cell the player is standing
             // in, not the ground: the ground block itself reads as roofed and
             // rain never falls on it.
             report(level, player, GrowthGovernor.standingCell(player));
+            player.getCooldowns().addCooldown(this, COOLDOWN_TICKS);
         }
         return InteractionResultHolder.success(player.getItemInHand(hand));
     }

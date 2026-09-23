@@ -32,7 +32,8 @@ import snownee.jade.api.config.IPluginConfig;
  * Optional Jade support, loaded only by Jade's own plugin discovery.
  * <ul>
  *   <li>Governed plants show only their verdict word - thriving, struggling,
- *       and so on. The numbers stay the Soil Tester's job.</li>
+ *       and so on, as named in the server config, after its configurable prefix. The numbers stay the Soil
+ *       Tester's job.</li>
  *   <li>Hygrometers show the humidity they read, and whether that is a
  *       greenhouse's or the outdoor air's.</li>
  * </ul>
@@ -43,6 +44,8 @@ public final class CropClimatesJadePlugin implements IWailaPlugin {
     static final ResourceLocation CROP_VERDICT = ResourceLocation.fromNamespaceAndPath(CropClimates.MOD_ID, "crop_verdict");
     static final ResourceLocation HYGROMETER = ResourceLocation.fromNamespaceAndPath(CropClimates.MOD_ID, "hygrometer");
     private static final String VERDICT_KEY = "crop_climates_verdict";
+    private static final String VERDICT_NAME_KEY = "crop_climates_verdict_name";
+    private static final String VERDICT_PREFIX_KEY = "crop_climates_verdict_prefix";
     private static final String HUMIDITY_KEY = "crop_climates_humidity";
     private static final String STATUS_KEY = "crop_climates_status";
 
@@ -69,7 +72,10 @@ public final class CropClimatesJadePlugin implements IWailaPlugin {
             BlockPos pos = GrowthGovernor.growingEnd(level, accessor.getPosition());
             GrowthGovernor.GrowthReading reading = GrowthGovernor.read(level, pos, level.getBlockState(pos));
             if (reading != null) {
-                data.putInt(VERDICT_KEY, Verdict.of(reading.total(), CropClimatesConfig.GROWTH_MAX.get()).ordinal());
+                Verdict verdict = Verdict.of(reading.total(), CropClimatesConfig.GROWTH_MAX.get());
+                data.putInt(VERDICT_KEY, verdict.ordinal());
+                data.putString(VERDICT_NAME_KEY, verdict.labelText());
+                data.putString(VERDICT_PREFIX_KEY, CropClimatesConfig.JADE_VERDICT_PREFIX.get());
             }
         }
 
@@ -88,7 +94,8 @@ public final class CropClimatesJadePlugin implements IWailaPlugin {
         public void appendTooltip(ITooltip tooltip, BlockAccessor accessor, IPluginConfig config) {
             CompoundTag data = accessor.getServerData();
             if (data.contains(VERDICT_KEY)) {
-                tooltip.add(Verdict.byId(data.getInt(VERDICT_KEY)).label());
+                tooltip.add(Component.literal(data.getString(VERDICT_PREFIX_KEY)).withStyle(ChatFormatting.GRAY)
+                        .append(Verdict.styled(data.getInt(VERDICT_KEY), data.getString(VERDICT_NAME_KEY))));
             }
         }
 

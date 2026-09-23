@@ -131,7 +131,7 @@ public final class CropTooltips {
         VerdictPayloads.Where where = places[Math.floorMod(response.where(), places.length)];
         Component place = tip("where." + where.name().toLowerCase(Locale.ROOT), response.humidity() + "%")
                 .withStyle(where == VerdictPayloads.Where.GREENHOUSE ? ChatFormatting.GREEN : ChatFormatting.DARK_GRAY);
-        return tip("here", Verdict.byId(response.verdict()).wouldLabel(), place).withStyle(ChatFormatting.GRAY);
+        return tip("here", Verdict.styled(response.verdict(), response.label()), place).withStyle(ChatFormatting.GRAY);
     }
 
     private static void request(Item item, long now) {

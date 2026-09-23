@@ -1,7 +1,13 @@
 package com.worldtraveler.cropclimates;
 
 import com.mojang.logging.LogUtils;
+import com.worldtraveler.cropclimates.report.Verdict;
+import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.common.ModConfigSpec;
+
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Tuning constants. A SERVER config, only ever read on the logical server.
@@ -31,6 +37,14 @@ public final class CropClimatesConfig {
     public static final ModConfigSpec.DoubleValue GROWTH_FLOOR;
     public static final ModConfigSpec.DoubleValue GROWTH_MAX;
     public static final ModConfigSpec.DoubleValue GROWTH_CURVE;
+
+    private static final Map<Verdict, ModConfigSpec.DoubleValue> VERDICT_THRESHOLDS = new EnumMap<>(Verdict.class);
+    private static final Map<Verdict, ModConfigSpec.ConfigValue<String>> VERDICT_NAMES = new EnumMap<>(Verdict.class);
+    private static final Map<Verdict, ModConfigSpec.ConfigValue<String>> VERDICT_TOOLTIP_NAMES = new EnumMap<>(Verdict.class);
+
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> BLACKLIST;
+
+    public static final ModConfigSpec.ConfigValue<String> JADE_VERDICT_PREFIX;
 
     public static final ModConfigSpec.DoubleValue TEMP_TOLERANCE;
     public static final ModConfigSpec.DoubleValue MOIST_TOLERANCE;
@@ -80,6 +94,36 @@ public final class CropClimatesConfig {
         GROWTH_CURVE = builder
                 .comment("Exponent applied to the combined fit. 1.0 = proportional; >1 stacks extra punishment on top of falloff.")
                 .defineInRange("growthCurve", 1.0, 0.01, 10.0);
+        builder.pop();
+
+        builder.push("blacklist");
+        BLACKLIST = builder
+                .comment("Blocks this mod never touches, whatever the crop_climate data says: they grow at vanilla speed, never " +
+                        "wilt, and get no Soil Tester, Jade or tooltip growth readout. Block ids (\"minecraft:wheat\") or block " +
+                        "tags (\"#minecraft:saplings\"). Takes effect when the config is saved, no restart needed.")
+                .defineListAllowEmpty("blocks", List.of(), () -> "", CropClimatesConfig::isBlockIdOrTag);
+        builder.pop();
+
+        builder.comment("Growth tiers shown by the Soil Tester, /cropclimates explain, the Alt tooltip and Jade, and used by the " +
+                        "Thriving! and Desperate conditions advancements. Tiers are checked from thriving down; a plant is in the " +
+                        "first tier whose threshold * growthMax its growth multiplier reaches, and in dead if it reaches none. " +
+                        "Thresholds are fractions of growthMax, so changing growthMax moves every tier. " +
+                        "name is the tier's word; tooltipName is the Alt tooltip's phrase for it.")
+                .push("verdicts");
+        JADE_VERDICT_PREFIX = builder
+                .comment("Text shown before the tier name in Jade, e.g. \"Growth: thriving\".")
+                .define("jadePrefix", "Health: ");
+        for (Verdict verdict : Verdict.values()) {
+            builder.push(verdict.configKey);
+            if (verdict.hasThreshold()) {
+                VERDICT_THRESHOLDS.put(verdict, builder
+                        .comment("Fraction of growthMax the growth multiplier must reach for this tier.")
+                        .defineInRange("threshold", verdict.defaultThreshold, 0.0, 10.0));
+            }
+            VERDICT_NAMES.put(verdict, builder.define("name", verdict.defaultName));
+            VERDICT_TOOLTIP_NAMES.put(verdict, builder.define("tooltipName", verdict.defaultTooltipName));
+            builder.pop();
+        }
         builder.pop();
 
         builder.push("tolerance");
@@ -213,6 +257,32 @@ public final class CropClimatesConfig {
                     + "greenhouses are capped at {}", configured, GREENHOUSE_VOLUME_CEILING);
         }
         return (int) Math.min(GREENHOUSE_VOLUME_CEILING, configured);
+    }
+
+    private static boolean isBlockIdOrTag(Object entry) {
+        return entry instanceof String s && ResourceLocation.tryParse(s.startsWith("#") ? s.substring(1) : s) != null;
+    }
+
+    /**
+     * The blacklist entries, or none while the config is not loaded - band
+     * resolution first runs before a server's config is, and runs again once it is.
+     */
+    public static List<? extends String> blacklist() {
+        return SPEC.isLoaded() ? BLACKLIST.get() : List.of();
+    }
+
+    /** A tier's threshold as a fraction of growthMax; NaN for the bottom tier, which has none. */
+    public static double verdictThreshold(Verdict verdict) {
+        ModConfigSpec.DoubleValue value = VERDICT_THRESHOLDS.get(verdict);
+        return value == null ? Double.NaN : value.get();
+    }
+
+    public static String verdictName(Verdict verdict) {
+        return VERDICT_NAMES.get(verdict).get();
+    }
+
+    public static String verdictTooltipName(Verdict verdict) {
+        return VERDICT_TOOLTIP_NAMES.get(verdict).get();
     }
 
     private CropClimatesConfig() {

@@ -12,6 +12,8 @@ import com.worldtraveler.cropclimates.report.ClimateReport;
 import com.worldtraveler.cropclimates.report.Reports;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.particles.ItemParticleOption;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
@@ -158,6 +160,7 @@ public class HygrometerEntity extends HangingEntity {
     @Override
     public void dropItem(@Nullable Entity breaker) {
         playSound(SoundEvents.ITEM_FRAME_BREAK, 1.0F, 1.0F);
+        spawnBreakParticles();
         if (!level().getGameRules().getBoolean(GameRules.RULE_DOENTITYDROPS)) {
             return;
         }
@@ -165,6 +168,15 @@ public class HygrometerEntity extends HangingEntity {
             return;
         }
         spawnAtLocation(new ItemStack(CropClimates.HYGROMETER.get()));
+    }
+
+    private void spawnBreakParticles() {
+        if (level() instanceof ServerLevel serverLevel) {
+            ItemParticleOption particle = new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(CropClimates.HYGROMETER.get()));
+            AABB box = getBoundingBox();
+            serverLevel.sendParticles(particle, box.getCenter().x, box.getCenter().y, box.getCenter().z,
+                    12, box.getXsize() / 4.0, box.getYsize() / 4.0, box.getZsize() / 4.0, 0.05);
+        }
     }
 
     @Override
@@ -231,8 +243,32 @@ public class HygrometerEntity extends HangingEntity {
                 status = GreenhouseStatus.SCANNING;
             }
         }
+        GreenhouseStatus previousStatus = status();
+        if (status == GreenhouseStatus.GREENHOUSE && previousStatus != GreenhouseStatus.GREENHOUSE) {
+            spawnGreenhouseParticles(level);
+        } else if ((status == GreenhouseStatus.TOO_SMALL || status == GreenhouseStatus.TOO_LARGE) && previousStatus != status) {
+            spawnFailureParticles(level);
+        }
         entityData.set(DATA_HUMIDITY, (float) humidity);
         entityData.set(DATA_STATUS, status.ordinal());
+    }
+
+    /** A puff of bonemeal-like sparkles, like a crop growing, when this hygrometer seals or joins a greenhouse. */
+    private void spawnGreenhouseParticles(ServerLevel level) {
+        AABB box = getBoundingBox();
+        level.sendParticles(ParticleTypes.HAPPY_VILLAGER, box.getCenter().x, box.getCenter().y, box.getCenter().z,
+                10, box.getXsize() / 2.0, box.getYsize() / 2.0, box.getZsize() / 2.0, 0.0);
+    }
+
+    /**
+     * A puff of the greenhouse's own dry-air dust when a sealed room turns out
+     * too small or too large to be one. Not shown for a hygrometer hung out in
+     * the open - that is just outdoor air, not a failed attempt.
+     */
+    private void spawnFailureParticles(ServerLevel level) {
+        AABB box = getBoundingBox();
+        level.sendParticles(CropClimates.GREENHOUSE_DUST.get(), box.getCenter().x, box.getCenter().y, box.getCenter().z,
+                10, box.getXsize() / 2.0, box.getYsize() / 2.0, box.getZsize() / 2.0, 0.0);
     }
 
     @Override

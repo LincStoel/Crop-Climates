@@ -2,10 +2,12 @@ package com.worldtraveler.cropclimates.advancement;
 
 import com.mojang.logging.LogUtils;
 import com.worldtraveler.cropclimates.CropClimates;
+import com.worldtraveler.cropclimates.CropClimatesConfig;
 import com.worldtraveler.cropclimates.climate.ClimateBands;
 import com.worldtraveler.cropclimates.climate.ClimateSampler;
 import com.worldtraveler.cropclimates.growth.CropGrowHandlers;
 import com.worldtraveler.cropclimates.growth.GrowthGovernor;
+import com.worldtraveler.cropclimates.report.Verdict;
 import net.minecraft.advancements.AdvancementHolder;
 import net.minecraft.advancements.AdvancementProgress;
 import net.minecraft.core.BlockPos;
@@ -31,15 +33,12 @@ public final class CropAdvancements {
     public static final ResourceLocation GREENHOUSE = id("greenhouse");
     /** "Soiled it!" - the Soil Tester used on a crop. */
     public static final ResourceLocation SOILED_IT = id("soiled_it");
-    /** "Thriving!" - planted where it grows faster than vanilla. */
+    /** "Thriving!" - planted where its verdict is thriving or healthy growth. */
     public static final ResourceLocation THRIVING = id("thriving");
-    /** "Desperate conditions" - planted where it grows at a tenth of vanilla speed or less. */
+    /** "Desperate conditions" - planted where its verdict is barely alive or effectively dead. */
     public static final ResourceLocation DESPERATE = id("desperate_conditions");
     /** "Invasive!" - the Soil Tester used on a player or mob. */
     public static final ResourceLocation INVASIVE = id("invasive");
-
-    private static final double THRIVING_ABOVE = 1.0;
-    private static final double DESPERATE_AT_MOST = 0.1;
 
     private CropAdvancements() {
     }
@@ -61,8 +60,8 @@ public final class CropAdvancements {
 
     /**
      * Thriving and Desperate conditions: a crop or sapling a player plants is
-     * judged once, as it is placed, by the same growth multiplier its random
-     * ticks will use (vanilla speed is 1.0).
+     * judged once, as it is placed, by the verdict tier of the same growth
+     * multiplier its random ticks will use, so both follow the configured tiers.
      */
     public static void onPlace(BlockEvent.EntityPlaceEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player) || !(event.getLevel() instanceof ServerLevel level)) {
@@ -78,10 +77,11 @@ public final class CropAdvancements {
             if (reading == null) {
                 return;
             }
-            if (reading.total() > THRIVING_ABOVE) {
-                award(player, THRIVING);
-            } else if (reading.total() <= DESPERATE_AT_MOST) {
-                award(player, DESPERATE);
+            switch (Verdict.of(reading.total(), CropClimatesConfig.GROWTH_MAX.get())) {
+                case THRIVING, BETTER -> award(player, THRIVING);
+                case BARELY_ALIVE, DEAD -> award(player, DESPERATE);
+                default -> {
+                }
             }
         } catch (RuntimeException ex) {
             // An advancement is never worth breaking a placement over.
