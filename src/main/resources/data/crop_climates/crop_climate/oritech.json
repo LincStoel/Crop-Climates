@@ -1,6 +1,6 @@
 {
  "wither_crop_block": {
-  "hook": "CropGrowEvent",
+  "hook": "randomTick",
   "humidity": [
    0.2,
    0.85
