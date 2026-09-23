@@ -1,6 +1,7 @@
 package com.worldtraveler.cropclimates.item;
 
 import com.worldtraveler.cropclimates.climate.TemperatureUnits;
+import com.worldtraveler.cropclimates.growth.GrowthGovernor;
 import com.worldtraveler.cropclimates.report.ClimateReport;
 import com.worldtraveler.cropclimates.report.Reports;
 import net.minecraft.ChatFormatting;
@@ -67,10 +68,9 @@ public class SoilTesterItem extends Item {
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         if (!level.isClientSide()) {
             // No block was targeted - read the open cell the player is standing
-            // in, not the solid ground below it: canSeeSky(pos) is only true for
-            // a position at or above the terrain, so the ground block itself
-            // always reads as roofed, even outdoors.
-            report(level, player, player.blockPosition());
+            // in, not the ground: the ground block itself reads as roofed and
+            // rain never falls on it.
+            report(level, player, GrowthGovernor.standingCell(player));
         }
         return InteractionResultHolder.success(player.getItemInHand(hand));
     }

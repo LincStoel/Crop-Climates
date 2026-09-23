@@ -101,7 +101,7 @@ public final class VerdictPayloads {
         if (band == null) {
             return unknown;
         }
-        BlockPos pos = player.blockPosition();
+        BlockPos pos = GrowthGovernor.standingCell(player);
         GrowthGovernor.Conditions conditions = GrowthGovernor.resolve(player.level(), pos, band);
         if (conditions == null) {
             return unknown;

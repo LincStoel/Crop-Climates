@@ -21,9 +21,22 @@ public final class HumiditySource {
 
     public static Outdoor outdoor(Level level, BlockPos pos) {
         double biome = BiomeMoisture.moistureOf(level.getBiome(pos), CropClimatesConfig.DEFAULT_BIOME_MOISTURE.get());
-        boolean raining = level.isRainingAt(pos);
+        boolean raining = rainReaches(level, pos);
         double humidity = raining ? clamp(biome + CropClimatesConfig.RAIN_HUMIDITY_SHIFT.get()) : biome;
         return new Outdoor(biome, humidity, raining);
+    }
+
+    /**
+     * Whether rain is falling on the plant at {@code pos}. A plant that blocks
+     * motion - bamboo, a cactus - tops the MOTION_BLOCKING heightmap itself,
+     * so {@link Level#isRainingAt} never counts it as rained on; the rain
+     * lands on the cell above it, so that is the one checked.
+     */
+    static boolean rainReaches(Level level, BlockPos pos) {
+        if (!level.isRaining()) {
+            return false;
+        }
+        return level.isRainingAt(pos) || (level.getBlockState(pos).blocksMotion() && level.isRainingAt(pos.above()));
     }
 
     static double clamp(double v) {

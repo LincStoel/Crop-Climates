@@ -11,6 +11,7 @@ import com.worldtraveler.cropclimates.greenhouse.Room;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.tags.FluidTags;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.GrowingPlantBodyBlock;
@@ -131,6 +132,18 @@ public final class GrowthGovernor {
             return null;
         }
         return score(band, conditions, ClimateBands.isSapling(state.getBlock()));
+    }
+
+    /**
+     * The cell a standing entity occupies for climate readings: the block at
+     * its feet, or the one above when it stands on a partial block such as
+     * farmland, a path or a slab. There {@code blockPosition()} is the floor
+     * block itself, which no rain falls on.
+     */
+    public static BlockPos standingCell(Entity entity) {
+        BlockPos pos = entity.blockPosition();
+        Level level = entity.level();
+        return level.getBlockState(pos).getCollisionShape(level, pos).isEmpty() ? pos : pos.above();
     }
 
     /**
