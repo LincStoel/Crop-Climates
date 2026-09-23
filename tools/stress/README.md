@@ -13,6 +13,8 @@ the `stressServer` / `stressClient` runs.
 | `tools/stress/rcon.py` | Stdlib RCON client (`python tools/stress/rcon.py "<command>" ...`) |
 | `tools/stress/harness.py` | Session helpers: timed windows, local spark profiles, summaries |
 | `tools/stress/scenarios.py` | The scenarios (`python tools/stress/scenarios.py s1 s2 ...`) |
+| `tools/stress/client_session.py` | Launches the stress client and flies StressBot through the built scenarios: FPS/particle CSV, screenshots, Alt tooltips |
+| `tools/stress/collect.py` | Gathers every results folder into one `collected.json` |
 | `tools/stress/SparkSummary.java` | Decodes `.sparkprofile` files locally with spark's own proto classes |
 
 ## Workflow
@@ -22,7 +24,11 @@ python tools/stress/setup.py            # once
 ./gradlew runStressServer               # headless dev server in run-stress/server
 python tools/stress/scenarios.py s0 f1  # any scenarios, in order
 ./gradlew runStressClient               # optional: auto-joins as StressBot
+python tools/stress/collect.py          # everything in run-stress/results -> collected.json
 ```
+
+Set `STRESS_TAG` (for example `STRESS_TAG=-after`) to suffix every window label and
+results folder, so a rerun on other code never overwrites the baseline.
 
 Results land in `run-stress/results/<label>/`: `mspt.json` (per-tick percentiles and
 counters), `ticks.csv`, and for profiled windows `profile.sparkprofile` plus

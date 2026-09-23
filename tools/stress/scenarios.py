@@ -17,7 +17,7 @@ import json
 import sys
 import time
 
-from harness import Session, log, RESULTS
+from harness import Session, log, RESULTS, out_dir, TAG
 
 Y = 64
 PLANTS_VANILLA = "wheat+carrots+potatoes+beetroots+melon_stem+sweet_berry+sugar_cane+cactus+pitcher+oak_sapling+bamboo"
@@ -105,8 +105,7 @@ def f1(s, seconds=120, rts=12):
             rows.append({"biome": b, "type": t, "plants": x["plants"], "controlUnits": c["units"],
                          "treatmentUnits": x["units"], "ratio": ratio, "firstEventRatio": fer,
                          "predicted": x.get("predictedMean"), "predictedUnavailable": x.get("predictedUnavailable")})
-    out = RESULTS / "F1-growth"
-    out.mkdir(parents=True, exist_ok=True)
+    out = out_dir("F1-growth")
     (out / "reports.json").write_text(json.dumps({f"{k[0]}-{k[1]}": v for k, v in reports.items()}, indent=1))
     (out / "summary.json").write_text(json.dumps(rows, indent=1))
     log("F1 growth-rate check (observed treatment/control vs predicted):")
@@ -268,8 +267,7 @@ def f2(s):
     check("room survives its chunks unloading", ok,
           f"while unloaded: {unloaded.get('loadedHygrometerEntities')} loaded entities, rooms={unloaded.get('rooms')}")
 
-    out = RESULTS / "F2-lifecycle"
-    out.mkdir(parents=True, exist_ok=True)
+    out = out_dir("F2-lifecycle")
     (out / "checks.json").write_text(json.dumps(CHECKS, indent=1))
     log(f"F2: {sum(c['ok'] for c in CHECKS)}/{len(CHECKS)} passed")
 
@@ -353,8 +351,7 @@ def f3(s):
     s.config("regressionChance", 0.02)
     s.c("gamerule randomTickSpeed 3", quiet=True)
 
-    out = RESULTS / "F3-rain-position"
-    out.mkdir(parents=True, exist_ok=True)
+    out = out_dir("F3-rain-position")
     (out / "checks.json").write_text(json.dumps(CHECKS, indent=1))
     log(f"F3: {sum(c['ok'] for c in CHECKS)}/{len(CHECKS)} checks as expected")
     release(s, F3_X - 16, -16, F3_X + 200, 100)
@@ -424,13 +421,12 @@ def dat_size():
 
 def save_window(s, label):
     """A short window around save-all flush, to catch the save cost as a tick spike."""
-    s.c(f"ccstress mspt start {label}", quiet=True)
+    s.c(f"ccstress mspt start {label}{TAG}", quiet=True)
     time.sleep(2)
     s.c("save-all flush", quiet=True)
     time.sleep(3)
     stats = s.json("ccstress mspt stop")
-    out = RESULTS / label
-    out.mkdir(parents=True, exist_ok=True)
+    out = out_dir(label)
     stats["datBytes"] = dat_size()
     (out / "mspt.json").write_text(json.dumps(stats, indent=1))
     log(f"window {label}: max={stats.get('maxMs')} save={stats['counters'].get('saveMaxMs')}ms dat={stats['datBytes']}B")
@@ -503,7 +499,7 @@ def s3(s):
         if n == 2025:
             # Every roof opens at once, then closes: how long until the registry catches up?
             s.c("gamerule randomTickSpeed 3", quiet=True)
-            s.c("ccstress mspt start S3-2025-roofs", quiet=True)
+            s.c(f"ccstress mspt start S3-2025-roofs{TAG}", quiet=True)
             t0 = time.time()
             s.c(f"ccstress roofs S3-{n} open")
             ok, t_open = wait_for(s, lambda: s.json("ccstress stats")["minecraft:overworld"]["status"].get("OUTDOOR", 0) >= n,
@@ -512,8 +508,7 @@ def s3(s):
             ok2, t_close = wait_for(s, lambda: s.json("ccstress stats")["minecraft:overworld"]["status"].get("GREENHOUSE", 0) >= n,
                                     600, 0.5)
             stats = s.json("ccstress mspt stop")
-            out = RESULTS / "S3-2025-roofs"
-            out.mkdir(parents=True, exist_ok=True)
+            out = out_dir("S3-2025-roofs")
             stats["allLeakedSeconds"] = t_open if ok else None
             stats["allResealedSeconds"] = t_close if ok2 else None
             (out / "mspt.json").write_text(json.dumps(stats, indent=1))
@@ -555,7 +550,7 @@ def s4(s):
     s.window("S4-cave11-prof", 60, profile=True)
     lat = latency(s, "S4ref")
     log(f"S4 reference latency while 11 cave hygrometers loop: {lat}")
-    (RESULTS / "S4-cave11" / "latency.json").write_text(json.dumps({"idle": base, "cave11": lat}))
+    (out_dir("S4-cave11") / "latency.json").write_text(json.dumps({"idle": base, "cave11": lat}))
     # Clear the cave hygrometers.
     s.c(f"kill @e[type=crop_climates:hygrometer,x={S4_X},y=0,z=0,dx=10,dy=40,dz=130]")
     # A sealed room straddling unloaded chunks: unloaded retries every 200 ticks.
@@ -629,7 +624,7 @@ def s7(s):
                      "maxMs": stats.get("maxMs")})
         log(f"S7 budget {budget}: {rows[-1]}")
     s.config("greenhouseCellsPerTick", 2048)
-    (RESULTS / "S7-budget.json").write_text(json.dumps(rows, indent=1))
+    (out_dir("S7-budget") / "summary.json").write_text(json.dumps(rows, indent=1))
     release(s, S2_X - 8, -8, S2_X + 80, 80)
 
 

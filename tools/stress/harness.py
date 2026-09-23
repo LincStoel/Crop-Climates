@@ -7,6 +7,7 @@ Every window writes into run-stress/results/<label>/:
   profile.sparkprofile + profile.txt + profile.json   (spark, decoded locally)
 """
 import json
+import os
 import pathlib
 import shutil
 import subprocess
@@ -23,6 +24,15 @@ SPARK_DIR = SERVER / "config" / "spark"
 SPARK_JAR = next((ROOT / "run" / "mods").glob("spark-*.jar"))
 JAVA = r"C:\Program Files\Java\jdk-21.0.11\bin\java.exe"
 SUMMARY = ROOT / "tools" / "stress" / "SparkSummary.java"
+# Appended to every window label and results folder, so a rerun (for example
+# after fixes, STRESS_TAG=-after) never overwrites the baseline.
+TAG = os.environ.get("STRESS_TAG", "")
+
+
+def out_dir(name):
+    d = RESULTS / (name + TAG)
+    d.mkdir(parents=True, exist_ok=True)
+    return d
 
 
 def log(msg):
@@ -67,8 +77,8 @@ class Session:
 
     def window(self, label, seconds, profile=False, interval=4):
         """One timed window: per-tick histogram and counters; optionally a spark profile."""
-        out = RESULTS / label
-        out.mkdir(parents=True, exist_ok=True)
+        out = out_dir(label)
+        label = label + TAG
         before = set(SPARK_DIR.glob("*.sparkprofile")) if SPARK_DIR.exists() else set()
         if profile:
             self.c(f"spark profiler start --interval {interval}", quiet=True)
