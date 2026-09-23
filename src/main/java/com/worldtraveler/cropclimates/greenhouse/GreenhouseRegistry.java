@@ -619,6 +619,11 @@ public final class GreenhouseRegistry extends SavedData {
         Probe successor = room.members.stream().map(probes::get).filter(p -> p != null).findFirst().orElse(null);
         if (successor != null) {
             room.anchor = successor.id;
+            // Watch the room for changes until the successor's own scan
+            // replaces this with its fresh bounds.
+            if (successor.footprint == null) {
+                addFootprint(successor, room.bounds);
+            }
             schedule(successor, 0);
         } else if (dissolveIfLast) {
             rooms.remove(room.id);

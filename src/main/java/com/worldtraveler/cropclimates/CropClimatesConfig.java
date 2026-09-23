@@ -3,9 +3,9 @@ package com.worldtraveler.cropclimates;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 /**
- * Tuning constants. A SERVER config, so it lives per world
- * ({@code <world>/serverconfig/crop_climates-server.toml}) and is only ever
- * read on the logical server.
+ * Tuning constants. A SERVER config, only ever read on the logical server.
+ * NeoForge 21.1 keeps it in {@code config/crop_climates-server.toml}; a copy
+ * in a world's {@code serverconfig/} folder overrides it for that world.
  */
 public final class CropClimatesConfig {
 

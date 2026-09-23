@@ -14,8 +14,9 @@ import java.util.ArrayDeque;
  * <p>Steps follow the same rule a Cold Sweat hearth uses to spread its air: a
  * destination cannot be rejected before it is visited, so a solid wall block
  * is enqueued and self-seals on its own pass. A visited cell that let the fill
- * continue to at least one neighbour is <em>interior</em> - air, water, and
- * anything air passes through, such as crops - and only interior cells count
+ * continue to at least one neighbour is <em>interior</em> - air and anything
+ * hearth air passes through, such as crops and farmland (sideways), but not
+ * water, which Cold Sweat's default config blacklists - and only interior cells count
  * toward {@link Limits#maxInterior}, get indexed for crop lookups, and are
  * the room size humidity is diluted by. Every visited cell, walls included,
  * is weighed for humidity, since sponges are solid wall blocks.

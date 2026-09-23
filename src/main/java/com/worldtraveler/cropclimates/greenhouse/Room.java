@@ -24,7 +24,8 @@ import java.util.UUID;
  *
  * <p>Humidity starts from the biome <em>at the anchor hygrometer</em>, even
  * when the room crosses a biome border, then shifts by the room's net source
- * weight diluted over its interior (air, water and plants - not the walls).
+ * weight diluted over its interior (air and plants - not walls, and not water
+ * with Cold Sweat's default config, though water is still weighed).
  * Rain never reaches it.
  */
 public final class Room {
