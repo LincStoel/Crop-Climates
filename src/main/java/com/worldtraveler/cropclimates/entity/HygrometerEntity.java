@@ -37,6 +37,8 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.event.level.BlockEvent;
 
 import javax.annotation.Nullable;
+import java.util.List;
+import java.util.UUID;
 
 /**
  * A wall-hung hygrometer, like an item frame. It establishes a greenhouse:
@@ -117,9 +119,16 @@ public class HygrometerEntity extends HangingEntity {
             return;
         }
         try {
-            for (HygrometerEntity hygrometer : level.getEntitiesOfClass(
-                    HygrometerEntity.class, new AABB(event.getPos()).inflate(1.0))) {
-                if (!hygrometer.isRemoved() && !hygrometer.survives()) {
+            // This fires for every block update in the world; the registry knows
+            // which blocks hold hygrometers, so the usual case is one hash miss
+            // instead of an entity query.
+            List<UUID> hung = Greenhouses.get(level).hangingOn(event.getPos());
+            if (hung == null) {
+                return;
+            }
+            for (UUID id : List.copyOf(hung)) {
+                if (level.getEntity(id) instanceof HygrometerEntity hygrometer
+                        && !hygrometer.isRemoved() && !hygrometer.survives()) {
                     hygrometer.discard();
                     hygrometer.dropItem(null);
                 }
@@ -167,7 +176,7 @@ public class HygrometerEntity extends HangingEntity {
     public void onAddedToLevel() {
         super.onAddedToLevel();
         if (level() instanceof ServerLevel serverLevel) {
-            Greenhouses.get(serverLevel).register(getUUID(), pos, serverLevel.getGameTime());
+            Greenhouses.get(serverLevel).register(getUUID(), pos, support(), serverLevel.getGameTime());
             refresh(serverLevel);
         }
     }
@@ -192,14 +201,23 @@ public class HygrometerEntity extends HangingEntity {
         }
     }
 
+    /** The block this hygrometer hangs on. */
+    private BlockPos support() {
+        return pos.relative(direction.getOpposite());
+    }
+
     private void refresh(ServerLevel level) {
+        GreenhouseRegistry registry = Greenhouses.get(level);
+        if (!registry.isRegisteredAt(getUUID(), pos)) {
+            // Moved without being removed (a teleport): scan from where it hangs now.
+            registry.register(getUUID(), pos, support(), level.getGameTime());
+        }
         GreenhouseStatus status;
         double humidity;
         Room room = null;
         if (!Greenhouses.enabled()) {
             status = GreenhouseStatus.DISABLED;
         } else {
-            GreenhouseRegistry registry = Greenhouses.get(level);
             status = registry.statusOf(getUUID());
             room = registry.roomOf(getUUID());
         }

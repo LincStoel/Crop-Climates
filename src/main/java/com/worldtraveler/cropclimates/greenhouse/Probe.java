@@ -13,6 +13,8 @@ final class Probe {
 
     final UUID id;
     BlockPos pos;
+    /** The block it hangs on, or {@code null} until its entity has reported it. */
+    BlockPos support;
     /** The room this hygrometer is in, or {@code null}. */
     Room room;
     GreenhouseStatus status = GreenhouseStatus.SCANNING;

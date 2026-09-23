@@ -74,6 +74,8 @@ public final class GreenhouseRegistry extends SavedData {
     private final Map<UUID, Room> rooms = new HashMap<>();
     private final Long2ObjectOpenHashMap<Room> cellIndex = new Long2ObjectOpenHashMap<>();
     private final Long2ObjectOpenHashMap<List<Probe>> sectionIndex = new Long2ObjectOpenHashMap<>();
+    /** Block a hygrometer hangs on -> the hygrometers on it, so a block update finds them without an entity query. */
+    private final Long2ObjectOpenHashMap<List<UUID>> supportIndex = new Long2ObjectOpenHashMap<>();
 
     private final ArrayDeque<UUID> queue = new ArrayDeque<>();
     private final Set<UUID> queued = new HashSet<>();
@@ -125,11 +127,23 @@ public final class GreenhouseRegistry extends SavedData {
         return queue.size() + (activeScan != null ? 1 : 0);
     }
 
+    /** Hygrometers hanging on the block at {@code support}, or {@code null} - one hash probe. */
+    @Nullable
+    public List<UUID> hangingOn(BlockPos support) {
+        return supportIndex.isEmpty() ? null : supportIndex.get(support.asLong());
+    }
+
     // ------------------------------------------------------- hygrometer events
 
-    public void register(UUID id, BlockPos pos, long now) {
+    /**
+     * Registers a hygrometer hanging at {@code pos} on the block at
+     * {@code support}. Called whenever its entity is added to the level; a
+     * hygrometer that has moved (a teleport, a contraption) starts over.
+     */
+    public void register(UUID id, BlockPos pos, BlockPos support, long now) {
         Probe probe = probes.get(id);
         if (probe != null && probe.pos.equals(pos)) {
+            setSupport(probe, support);
             if (probe.status == GreenhouseStatus.SCANNING) {
                 schedule(probe, now);
             }
@@ -140,8 +154,31 @@ public final class GreenhouseRegistry extends SavedData {
         }
         probe = new Probe(id, pos);
         probes.put(id, probe);
+        setSupport(probe, support);
         schedule(probe, now);
         setDirty();
+    }
+
+    /** Whether the registry has this hygrometer at {@code pos} - a moved one needs registering again. */
+    public boolean isRegisteredAt(UUID id, BlockPos pos) {
+        Probe probe = probes.get(id);
+        return probe != null && probe.pos.equals(pos);
+    }
+
+    private void setSupport(Probe probe, @Nullable BlockPos support) {
+        if (probe.support != null) {
+            List<UUID> list = supportIndex.get(probe.support.asLong());
+            if (list != null) {
+                list.remove(probe.id);
+                if (list.isEmpty()) {
+                    supportIndex.remove(probe.support.asLong());
+                }
+            }
+        }
+        probe.support = support == null ? null : support.immutable();
+        if (support != null) {
+            supportIndex.computeIfAbsent(support.asLong(), k -> new ArrayList<>(1)).add(probe.id);
+        }
     }
 
     public void unregister(UUID id) {
@@ -154,6 +191,7 @@ public final class GreenhouseRegistry extends SavedData {
             activeScan = null;
         }
         removeFootprint(probe);
+        setSupport(probe, null);
         leaveRoom(probe, true);
         queued.remove(id);
         setDirty();
@@ -663,6 +701,9 @@ public final class GreenhouseRegistry extends SavedData {
             CompoundTag entry = new CompoundTag();
             entry.putUUID("Id", probe.id);
             entry.put("Pos", NbtUtils.writeBlockPos(probe.pos));
+            if (probe.support != null) {
+                entry.put("Support", NbtUtils.writeBlockPos(probe.support));
+            }
             if (probe.room != null) {
                 entry.putUUID("Room", probe.room.id);
             }
@@ -701,6 +742,8 @@ public final class GreenhouseRegistry extends SavedData {
                 continue;
             }
             Probe probe = new Probe(entry.getUUID("Id"), pos);
+            // Older saves lack it; the entity supplies it when it loads.
+            NbtUtils.readBlockPos(entry, "Support").ifPresent(support -> registry.setSupport(probe, support));
             if (entry.hasUUID("Room")) {
                 Room room = registry.rooms.get(entry.getUUID("Room"));
                 if (room != null) {
