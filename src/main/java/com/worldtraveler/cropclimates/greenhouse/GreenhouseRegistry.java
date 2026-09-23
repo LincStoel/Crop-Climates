@@ -3,9 +3,11 @@ package com.worldtraveler.cropclimates.greenhouse;
 import com.mojang.logging.LogUtils;
 import com.worldtraveler.cropclimates.CropClimatesConfig;
 import com.worldtraveler.cropclimates.CropClimatesTags;
+import com.worldtraveler.cropclimates.report.ClimateReport;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.SectionPos;
@@ -14,6 +16,7 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.EmptyBlockGetter;
 import net.minecraft.world.level.block.state.BlockState;
@@ -48,6 +51,10 @@ import java.util.UUID;
  *       included, grown by one) contains it, and those rescan after
  *       {@code greenhouseChangeDelay}. A routine rescan every
  *       {@code greenhouseRescanInterval} backs this up.</li>
+ *   <li><b>Parking</b> - a hygrometer whose scan comes back too large (a
+ *       cave, a Nether cavern) stops scanning altogether: no retries, no
+ *       change detection, across restarts too. Only a requested scan - a
+ *       player shift-right-clicking it - wakes it.</li>
  * </ul>
  *
  * <p>There is no limit on the number of greenhouses; each is capped in size by
@@ -63,10 +70,7 @@ public final class GreenhouseRegistry extends SavedData {
 
     /** Unloaded chunks: retry after this many ticks, doubling while it keeps happening. */
     private static final int UNLOADED_RETRY = 200;
-    /**
-     * Most doublings of a retry while a scan keeps coming back too large or
-     * unloaded: 600 -> 9600 ticks and 200 -> 6400 ticks with the defaults.
-     */
+    /** Most doublings of a retry while a scan keeps coming back unloaded: 200 -> 6400 ticks. */
     private static final int MAX_BACKOFF = 4;
     private static final int PERIODIC_CHECK = 20;
 
@@ -197,12 +201,25 @@ public final class GreenhouseRegistry extends SavedData {
         setDirty();
     }
 
-    /** Re-reads a hygrometer's room now - a right-click on the hygrometer asks for this. */
+    /** Re-reads a hygrometer's room now. */
     public void requestScan(UUID id, long now) {
+        requestScan(id, now, null);
+    }
+
+    /**
+     * Re-reads a hygrometer's room now: placing one and shift-right-clicking
+     * one ask for this, and it is the only thing that wakes a hygrometer
+     * parked as too large. {@code player}, if given, is told when the scan
+     * finds the space too large for a greenhouse.
+     */
+    public void requestScan(UUID id, long now, @Nullable UUID player) {
         Probe probe = probes.get(id);
         if (probe != null) {
             Probe target = scanTarget(probe);
             target.misses = 0;
+            if (player != null) {
+                target.notify = player;
+            }
             schedule(target, now);
         }
     }
@@ -445,6 +462,26 @@ public final class GreenhouseRegistry extends SavedData {
             return;
         }
 
+        UUID notify = probe.notify;
+        probe.notify = null;
+        if (result == RoomScan.Status.TOO_LARGE) {
+            // A cave or a Nether cavern never seals, and every retry would flood a
+            // whole max-size room's worth of cells - so stop until a player asks.
+            // Hygrometers that shared the room are in the same space: they park too.
+            boolean hadRoom = probe.room != null;
+            if (probe.isAnchor()) {
+                dissolve(probe.room, now, true);
+            } else {
+                leaveRoom(probe, true);
+            }
+            park(probe);
+            tellTooLarge(level, notify);
+            if (hadRoom || statusBefore != GreenhouseStatus.TOO_LARGE) {
+                setDirty();
+            }
+            return;
+        }
+
         addFootprint(probe, scan.bounds());
         boolean changed;
         if (result == RoomScan.Status.ENCLOSED) {
@@ -454,27 +491,15 @@ public final class GreenhouseRegistry extends SavedData {
         } else {
             changed = probe.room != null;
             if (probe.isAnchor()) {
-                dissolve(probe.room, now);
+                dissolve(probe.room, now, false);
             } else {
                 leaveRoom(probe, true);
             }
-            probe.status = switch (result) {
-                case TOO_LARGE -> GreenhouseStatus.TOO_LARGE;
-                case TOO_SMALL -> GreenhouseStatus.TOO_SMALL;
-                default -> GreenhouseStatus.OUTDOOR;
-            };
-            int retry = CropClimatesConfig.GREENHOUSE_UNSEALED_RETRY_INTERVAL.get();
-            if (result == RoomScan.Status.TOO_LARGE) {
-                // A cave or a Nether cavern never seals: each retry floods a whole
-                // max-size room's worth of cells, so back off while nothing changes.
-                // Outdoor and too-small retries stay prompt - they are cheap, and a
-                // player closing a room up expects it to become a greenhouse.
-                retry <<= Math.min(probe.misses, MAX_BACKOFF);
-                probe.misses++;
-            } else {
-                probe.misses = 0;
-            }
-            probe.dueTick = now + stagger(probe, retry);
+            probe.status = result == RoomScan.Status.TOO_SMALL ? GreenhouseStatus.TOO_SMALL : GreenhouseStatus.OUTDOOR;
+            // Outdoor and too-small retries stay prompt - they are cheap, and a
+            // player closing a room up expects it to become a greenhouse.
+            probe.misses = 0;
+            probe.dueTick = now + stagger(probe, CropClimatesConfig.GREENHOUSE_UNSEALED_RETRY_INTERVAL.get());
         }
         if (activeInvalidated) {
             probe.dueTick = Math.min(probe.dueTick, now + CropClimatesConfig.GREENHOUSE_CHANGE_DELAY.get());
@@ -483,6 +508,23 @@ public final class GreenhouseRegistry extends SavedData {
         // re-serialising every room's cells on each autosave is not free.
         if (changed || probe.status != statusBefore || probe.room != roomBefore) {
             setDirty();
+        }
+    }
+
+    /** Too large: no footprint and no due time, so nothing but {@link #requestScan} wakes it. */
+    private void park(Probe probe) {
+        removeFootprint(probe);
+        probe.status = GreenhouseStatus.TOO_LARGE;
+        probe.dueTick = Long.MAX_VALUE;
+        probe.misses = 0;
+    }
+
+    /** Tells the player who placed or rescanned a hygrometer that its space is too large for a greenhouse. */
+    private static void tellTooLarge(ServerLevel level, @Nullable UUID player) {
+        ServerPlayer target = player == null ? null : level.getServer().getPlayerList().getPlayer(player);
+        if (target != null) {
+            target.sendSystemMessage(ClimateReport.key("hygrometer.too_large_message",
+                    ClimateReport.value(CropClimatesConfig.greenhouseMaxVolume())).withStyle(ChatFormatting.YELLOW));
         }
     }
 
@@ -595,6 +637,7 @@ public final class GreenhouseRegistry extends SavedData {
         }
         probe.room = room;
         probe.status = GreenhouseStatus.GREENHOUSE;
+        probe.notify = null;
         room.members.add(probe.id);
         if (!probe.id.equals(room.anchor)) {
             probe.dueTick = Long.MAX_VALUE; // the anchor rescans for everyone
@@ -631,8 +674,12 @@ public final class GreenhouseRegistry extends SavedData {
         }
     }
 
-    /** The room is gone (its anchor's scan leaked): every member looks again for itself. */
-    private void dissolve(Room room, long now) {
+    /**
+     * The room is gone. If its anchor's scan leaked, every member looks again
+     * for itself; if it came back too large, they are all in that same space
+     * and park with the anchor instead of flooding it once each.
+     */
+    private void dissolve(Room room, long now, boolean parkMembers) {
         rooms.remove(room.id);
         unindex(room);
         for (UUID memberId : List.copyOf(room.members)) {
@@ -640,7 +687,12 @@ public final class GreenhouseRegistry extends SavedData {
             if (member != null) {
                 member.room = null;
                 member.status = GreenhouseStatus.SCANNING;
-                if (!member.id.equals(room.anchor)) {
+                if (member.id.equals(room.anchor)) {
+                    continue;
+                }
+                if (parkMembers) {
+                    park(member);
+                } else {
                     schedule(member, now);
                 }
             }
@@ -722,7 +774,8 @@ public final class GreenhouseRegistry extends SavedData {
     /**
      * Rooms come back with their cells, so crops resolve immediately; every
      * hygrometer is due for a fresh scan on the first tick to catch anything
-     * that changed while the world was off.
+     * that changed while the world was off - except one parked as too large,
+     * which keeps waiting for a player.
      */
     static GreenhouseRegistry load(CompoundTag tag, HolderLookup.Provider registries) {
         GreenhouseRegistry registry = new GreenhouseRegistry();
@@ -764,7 +817,7 @@ public final class GreenhouseRegistry extends SavedData {
             if (probe.room != null && probe.room.anchor.equals(probe.id)) {
                 registry.addFootprint(probe, probe.room.bounds);
             }
-            probe.dueTick = 0;
+            probe.dueTick = probe.status == GreenhouseStatus.TOO_LARGE ? Long.MAX_VALUE : 0;
             registry.probes.put(probe.id, probe);
         }
         // Rooms nobody points at any more cannot be rescanned - drop them.
@@ -779,8 +832,10 @@ public final class GreenhouseRegistry extends SavedData {
             }
         }
         for (Probe probe : registry.probes.values()) {
-            registry.queued.add(probe.id);
-            registry.queue.add(probe.id);
+            if (probe.dueTick != Long.MAX_VALUE) {
+                registry.queued.add(probe.id);
+                registry.queue.add(probe.id);
+            }
         }
         return registry;
     }

@@ -1,11 +1,13 @@
 package com.worldtraveler.cropclimates.item;
 
 import com.worldtraveler.cropclimates.entity.HygrometerEntity;
+import com.worldtraveler.cropclimates.greenhouse.Greenhouses;
 import com.worldtraveler.cropclimates.report.ClimateReport;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
@@ -39,10 +41,14 @@ public class HygrometerItem extends Item {
         if (!hygrometer.survives()) {
             return InteractionResult.CONSUME;
         }
-        if (!level.isClientSide()) {
+        if (level instanceof ServerLevel serverLevel) {
             hygrometer.playPlacementSound();
             level.gameEvent(player, GameEvent.ENTITY_PLACE, hygrometer.position());
             level.addFreshEntity(hygrometer);
+            if (player != null) {
+                // Tell the placer if its first scan finds the space too large for a greenhouse.
+                Greenhouses.get(serverLevel).requestScan(hygrometer.getUUID(), serverLevel.getGameTime(), player.getUUID());
+            }
         }
         stack.shrink(1);
         return InteractionResult.sidedSuccess(level.isClientSide());

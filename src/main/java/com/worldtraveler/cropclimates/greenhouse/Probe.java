@@ -2,6 +2,7 @@ package com.worldtraveler.cropclimates.greenhouse;
 
 import net.minecraft.core.BlockPos;
 
+import javax.annotation.Nullable;
 import java.util.UUID;
 
 /**
@@ -24,13 +25,19 @@ final class Probe {
      * that joined a room another hygrometer scans.
      */
     int[] footprint;
-    /** Game time this hygrometer should next be scanned. */
+    /** Game time this hygrometer should next be scanned; {@code Long.MAX_VALUE} while parked as too large. */
     long dueTick;
     /**
-     * Consecutive scans that came back too large or unloaded with nothing
-     * changed in between; each doubles the wait before the next retry.
+     * Consecutive scans that came back unloaded with nothing changed in
+     * between; each doubles the wait before the next retry.
      */
     int misses;
+    /**
+     * The player who placed or shift-right-clicked this hygrometer, told if
+     * its next scan finds the space too large. Not saved.
+     */
+    @Nullable
+    UUID notify;
 
     Probe(UUID id, BlockPos pos) {
         this.id = id;

@@ -177,8 +177,11 @@ public final class Reports {
             case OUTDOOR -> report.row(ClimateReport.key("hygrometer.outdoor").withStyle(ChatFormatting.YELLOW));
             case TOO_SMALL -> report.row(ClimateReport.key("hygrometer.too_small",
                     ClimateReport.value(CropClimatesConfig.GREENHOUSE_MIN_VOLUME.get())).withStyle(ChatFormatting.YELLOW));
-            case TOO_LARGE -> report.row(ClimateReport.key("hygrometer.too_large",
-                    ClimateReport.value(CropClimatesConfig.greenhouseMaxVolume())).withStyle(ChatFormatting.YELLOW));
+            case TOO_LARGE -> {
+                report.row(ClimateReport.key("hygrometer.too_large",
+                        ClimateReport.value(CropClimatesConfig.greenhouseMaxVolume())).withStyle(ChatFormatting.YELLOW));
+                report.row(ClimateReport.key("hygrometer.rescan_hint").withStyle(ChatFormatting.GRAY));
+            }
             case SCANNING -> report.row(ClimateReport.key("hygrometer.scanning").withStyle(ChatFormatting.GRAY));
             case DISABLED -> report.row(ClimateReport.key("hygrometer.disabled").withStyle(ChatFormatting.GRAY));
         }

@@ -8,6 +8,7 @@ import com.worldtraveler.cropclimates.greenhouse.GreenhouseRegistry;
 import com.worldtraveler.cropclimates.greenhouse.GreenhouseStatus;
 import com.worldtraveler.cropclimates.greenhouse.Greenhouses;
 import com.worldtraveler.cropclimates.greenhouse.Room;
+import com.worldtraveler.cropclimates.report.ClimateReport;
 import com.worldtraveler.cropclimates.report.Reports;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -45,10 +46,11 @@ import java.util.UUID;
  * the {@link GreenhouseRegistry} scans the room it hangs in, and every crop
  * inside then grows by the room's humidity. Hung anywhere not sealed, it just
  * reads the outdoor air (rain included) and keeps checking, so closing the
- * room up turns it into a greenhouse on its own.
+ * room up turns it into a greenhouse on its own. Hung in a space too large
+ * for a greenhouse (a cave), it stops checking until shift-right-clicked.
  *
  * <p>Humidity and status are synced to clients for the dial and Jade; the
- * right-click report is built server side.
+ * right-click report is built server side. Shift-right-click rescans.
  */
 public class HygrometerEntity extends HangingEntity {
 
@@ -243,12 +245,18 @@ public class HygrometerEntity extends HangingEntity {
             return InteractionResult.CONSUME;
         }
         lastReport = now;
-        refresh(serverLevel);
         GreenhouseRegistry registry = Greenhouses.get(serverLevel);
+        if (player.isSecondaryUseActive() && Greenhouses.enabled()) {
+            // Shift-right-click: read the room again. The only thing that wakes a
+            // hygrometer parked as too large, and its player hears if it still is.
+            registry.requestScan(getUUID(), now, player.getUUID());
+            player.displayClientMessage(ClimateReport.key("hygrometer.rescanning"), true);
+            return InteractionResult.CONSUME;
+        }
+        refresh(serverLevel);
         Room room = Greenhouses.enabled() ? registry.roomOf(getUUID()) : null;
         Reports.hygrometer(serverLevel, pos, status(), room, TemperatureUnits.forPlayer(player))
                 .send(line -> player.displayClientMessage(line, false));
-        registry.requestScan(getUUID(), now);
         return InteractionResult.CONSUME;
     }
 

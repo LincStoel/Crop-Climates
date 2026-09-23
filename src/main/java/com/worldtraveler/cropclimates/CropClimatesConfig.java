@@ -170,7 +170,8 @@ public final class CropClimatesConfig {
                 .comment("Ticks between routine rescans of a greenhouse, as a backstop to change detection.")
                 .defineInRange("greenhouseRescanInterval", 1200, 20, Integer.MAX_VALUE);
         GREENHOUSE_UNSEALED_RETRY_INTERVAL = builder
-                .comment("Ticks between retries for a Hygrometer that is not in a sealed room.")
+                .comment("Ticks between retries for a Hygrometer that is not in a sealed room. " +
+                        "One in a space too large for a greenhouse does not retry; it waits for a shift-right-click.")
                 .defineInRange("greenhouseUnsealedRetryInterval", 600, 20, Integer.MAX_VALUE);
         GREENHOUSE_CHANGE_DELAY = builder
                 .comment("Ticks to wait after a block changes in or around a greenhouse before rescanning, so a burst of changes costs one scan.")
