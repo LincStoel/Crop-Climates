@@ -1,6 +1,7 @@
 package com.worldtraveler.cropclimates.growth;
 
 import com.worldtraveler.cropclimates.CropClimatesConfig;
+import com.worldtraveler.cropclimates.climate.ClimateBands;
 import com.mojang.logging.LogUtils;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -54,6 +55,13 @@ public final class CropGrowHandlers {
             return;
         }
         try {
+            // Plants governed at randomTick (saplings, "hook": "randomTick") are
+            // slowed and sped up there. Many of them also fire CropGrowEvent from
+            // inside that tick; governing it again would square the slow-down and
+            // turn their extra tick into a forced growth.
+            if (ClimateBands.isRandomTickGoverned(event.getState().getBlock())) {
+                return;
+            }
             if (forcing) {
                 // We are driving the extra tick ourselves - it must succeed.
                 event.setResult(CropGrowEvent.Pre.Result.GROW);
@@ -75,7 +83,7 @@ public final class CropGrowHandlers {
     }
 
     public static void onPost(CropGrowEvent.Post event) {
-        if (disabled || forcing) {
+        if (disabled || forcing || ClimateBands.isRandomTickGoverned(event.getState().getBlock())) {
             return;
         }
         try {
