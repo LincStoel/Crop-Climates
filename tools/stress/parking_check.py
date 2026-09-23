@@ -5,6 +5,8 @@ and reads what its chat showed. Needs the stress server running with S4's sealed
     python tools/stress/parking_check.py            # everything but the restart
     python tools/stress/parking_check.py restart    # after a server restart (with greenhouseMaxHeight
                                                     # set to 4000 in the file while it was down)
+    python tools/stress/parking_check.py report     # only the placement report, at spots the full
+                                                    # run leaves free
 
 Results: run-stress/results/F4-parking/checks.json.
 """
@@ -22,8 +24,10 @@ CHAT = CLIENT / "stress-chat.txt"
 TOO_LARGE = "too large for a greenhouse"
 HINT = "Shift-right-click the hygrometer to rescan"
 RESCANNING = "[overlay] Rescanning the room"
-OUT = out_dir("F4-parking") / "checks.json"
-CHECKS = json.loads(OUT.read_text(encoding="utf-8")) if len(sys.argv) > 1 and OUT.exists() else []
+SEALED = "Greenhouse sealed"  # the report's greenhouse line
+MODE = sys.argv[1] if len(sys.argv) > 1 else "all"
+OUT = out_dir("F4-parking") / ("report-checks.json" if MODE == "report" else "checks.json")
+CHECKS = json.loads(OUT.read_text(encoding="utf-8")) if MODE == "restart" and OUT.exists() else []
 
 
 def check(name, ok, detail=""):
@@ -53,7 +57,8 @@ def after(s, action, wait=4):
     return chat()[before:]
 
 
-def main(s):
+def start_client(s):
+    """Launches the stress client and waits for StressBot; returns the process, or None."""
     if CHAT.exists():
         CHAT.unlink()
     proc = subprocess.Popen(["cmd", "/c", str(ROOT / "gradlew.bat"), "runStressClient", "--console=plain"], cwd=str(ROOT),
@@ -61,20 +66,34 @@ def main(s):
     log("client launched, waiting for StressBot")
     if not wait_player(s):
         log("! StressBot never joined; see run-stress/results/client-gradle.log")
-        return
+        return None
     time.sleep(10)
     s.rules(3)
     s.c(f"gamemode creative {BOT}")
     s.c(f"tp {BOT} {S4_X + 10} 5 30")
     s.c(f"ccstress fly {BOT}")
+    return proc
+
+
+def stop_client(s, proc):
+    s.c(f"kick {BOT} parking check over")
+    time.sleep(5)
+    proc.terminate()
+    log(f"parking check: {sum(c['ok'] for c in CHECKS)}/{len(CHECKS)} passed")
+
+
+def main(s):
+    proc = start_client(s)
+    if proc is None:
+        return
 
     # A player hangs one in the sealed cave (576,000 cells).
     s.c(f"ccstress use cave4 {BOT} {S4_X - 1} 5 60 east")
     ok, t = wait_for(s, lambda: state(s, "cave4") == "TOO_LARGE", 30, 0.5)
     time.sleep(2)
     check("a hygrometer a player hangs in a cave over the cap reads too large", ok, f"after {t:.1f}s")
-    check("that player is told in chat, with the rescan hint", chat().count(TOO_LARGE) == 1 and HINT in chat(),
-          chat().strip()[-200:])
+    check("that player is told in chat, with the rescan hint, and gets no greenhouse report",
+          chat().count(TOO_LARGE) == 1 and HINT in chat() and SEALED not in chat(), chat().strip()[-200:])
 
     # Parked: block changes inside the cave start nothing.
     base = too_large_scans(s)
@@ -108,13 +127,13 @@ def main(s):
     s.c(f"ccstress interact cave4 0 {BOT} true")
     ok, t = wait_for(s, lambda: state(s, "cave4") == "GREENHOUSE", 30, 0.5)
     time.sleep(2)
-    check("a shift-right-click then finds the greenhouse, with no too-large message",
-          ok and TOO_LARGE not in chat()[before:], f"after {t:.1f}s, {status(s, 'cave4')}")
+    check("a shift-right-click then finds the greenhouse, with no message and no report",
+          ok and TOO_LARGE not in chat()[before:] and SEALED not in chat()[before:], f"after {t:.1f}s, {status(s, 'cave4')}")
 
-    # Control: hung in an ordinary greenhouse, it just joins it.
+    # Hung in an ordinary greenhouse, it joins it and its placer gets the report.
     new = after(s, lambda: s.c(f"ccstress use ctl {BOT} {S4_X + 10} {Y + 2} 153 east"), 6)
-    check("a hygrometer hung in a normal greenhouse joins it, with no message",
-          state(s, "ctl") == "GREENHOUSE" and TOO_LARGE not in new, json.dumps(status(s, "ctl")))
+    check("a hygrometer hung in a normal greenhouse joins it and its placer gets the report",
+          state(s, "ctl") == "GREENHOUSE" and SEALED in new and TOO_LARGE not in new, json.dumps(status(s, "ctl")))
 
     # The ceiling: radius 64 allows 565,794 cells on paper, but greenhouses stop at 262,144.
     s.config("greenhouseMaxRadius", 64)
@@ -132,10 +151,34 @@ def main(s):
     ok, _ = wait_for(s, lambda: state(s, "ceilA") == "TOO_LARGE", 60, 0.5)
     check("back at radius 32, a shift-right-click parks the ~196,000-cell room as too large", ok)
 
-    s.c(f"kick {BOT} parking check over")
-    time.sleep(5)
-    proc.terminate()
-    log(f"parking check: {sum(c['ok'] for c in CHECKS)}/{len(CHECKS)} passed")
+    stop_client(s, proc)
+
+
+def report(s):
+    """The report a player gets on hanging a hygrometer, at spots the full run leaves free."""
+    proc = start_client(s)
+    if proc is None:
+        return
+    # A sealed glass box with no hygrometer: hanging one makes the greenhouse, and the report arrives.
+    s.c(f"fill {S4_X + 25} {Y + 1} 165 {S4_X + 31} {Y + 6} 171 glass hollow")
+    new = after(s, lambda: s.c(f"ccstress use fresh {BOT} {S4_X + 25} {Y + 3} 168 east"), 6)
+    check("a hygrometer hung in a sealed room makes a greenhouse and its placer gets the report at once",
+          state(s, "fresh") == "GREENHOUSE" and SEALED in new and "Hygrometer" in new, new.strip()[-240:])
+    # Hung in an existing greenhouse it joins without scanning: the report still comes.
+    new = after(s, lambda: s.c(f"ccstress use ctl2 {BOT} {S4_X + 10} {Y + 2} 157 east"), 6)
+    check("one hung in an existing greenhouse joins it and its placer gets the report",
+          state(s, "ctl2") == "GREENHOUSE" and SEALED in new, json.dumps(status(s, "ctl2")))
+    # Hung in the cave: the too-large message, no report.
+    new = after(s, lambda: s.c(f"ccstress use cave5 {BOT} {S4_X - 1} 5 90 east"), 10)
+    check("one hung in the cave gets the too-large message and no report",
+          state(s, "cave5") == "TOO_LARGE" and TOO_LARGE in new and SEALED not in new, new.strip()[-160:])
+    # Shift-right-click is a rescan, not a placement: no report when it is still a greenhouse.
+    new = after(s, lambda: s.c(f"ccstress interact fresh 0 {BOT} true"), 6)
+    check("a shift-right-click on a greenhouse rescans without a report", RESCANNING in new and SEALED not in new,
+          new.strip()[-160:])
+    new = after(s, lambda: s.c(f"ccstress interact fresh 0 {BOT} false"), 4)
+    check("a plain right-click still shows the report", SEALED in new)
+    stop_client(s, proc)
 
 
 def after_restart(s):
@@ -148,13 +191,16 @@ def after_restart(s):
     m = re.search(r"greenhouseMaxHeight\s*=\s*(\d+)", toml)
     check("greenhouseMaxHeight = 4000 in the file is corrected to 383", bool(m) and m.group(1) == "383",
           m.group(0) if m else "not found")
+    s.config("greenhouseMaxHeight", 34)  # back to the default for later runs
     log(f"parking check: {sum(c['ok'] for c in CHECKS)}/{len(CHECKS)} passed")
 
 
 if __name__ == "__main__":
     session = Session()
     force(session, S4_X - 8, -8, S4_X + 136, 200)
-    if len(sys.argv) > 1 and sys.argv[1] == "restart":
+    if MODE == "restart":
         after_restart(session)
+    elif MODE == "report":
+        report(session)
     else:
         main(session)
