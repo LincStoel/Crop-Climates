@@ -62,6 +62,8 @@ public abstract class GreenhouseRegistryMixin {
     private static void cc$matters(BlockState oldState, BlockState newState, CallbackInfoReturnable<Boolean> cir) {
         if (cir.getReturnValueZ()) {
             Counters.mattersTrue++;
+            Counters.rescanCauses.merge(net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(oldState.getBlock()).getPath()
+                    + " -> " + net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(newState.getBlock()).getPath(), 1L, Long::sum);
         } else {
             Counters.mattersFalse++;
         }

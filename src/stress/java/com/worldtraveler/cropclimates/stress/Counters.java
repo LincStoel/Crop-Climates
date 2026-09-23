@@ -28,6 +28,9 @@ public final class Counters {
     public static long saves, saveNanos, saveMaxNanos, loads, loadNanos;
     public static long particlePackets;
 
+    /** Old -> new block pairs of changes that made a greenhouse rescan (matters() true). */
+    public static final java.util.Map<String, Long> rescanCauses = new java.util.HashMap<>();
+
     /** Cells stepped during the current tick, across dimensions (reset each server tick). */
     public static long cellsThisTick;
 
@@ -44,6 +47,7 @@ public final class Counters {
         cellsInFinishedScans = installs = installNanos = installMaxNanos = 0;
         saves = saveNanos = saveMaxNanos = loads = loadNanos = 0;
         particlePackets = 0;
+        rescanCauses.clear();
     }
 
     public static JsonObject toJson() {
@@ -84,6 +88,10 @@ public final class Counters {
         o.addProperty("loads", loads);
         o.addProperty("loadMs", loadNanos / 1e6);
         o.addProperty("particlePackets", particlePackets);
+        JsonObject causes = new JsonObject();
+        rescanCauses.entrySet().stream().sorted((a, b) -> Long.compare(b.getValue(), a.getValue())).limit(20)
+                .forEach(e -> causes.addProperty(e.getKey(), e.getValue()));
+        o.add("rescanCauses", causes);
         return o;
     }
 }

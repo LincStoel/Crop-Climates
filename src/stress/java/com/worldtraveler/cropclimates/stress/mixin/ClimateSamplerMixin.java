@@ -25,8 +25,16 @@ public abstract class ClimateSamplerMixin {
         Counters.tempFreshReads++;
     }
 
-    @Inject(method = "temperatureF", at = @At(value = "INVOKE", target = "Ljava/util/concurrent/ConcurrentHashMap;clear()V"))
+    /** The original full wipe at the cap; optional so the harness also loads against code without it. */
+    @Inject(method = "temperatureF", at = @At(value = "INVOKE", target = "Ljava/util/concurrent/ConcurrentHashMap;clear()V"),
+            require = 0)
     private static void cc$wipe(Level level, BlockPos pos, CallbackInfoReturnable<OptionalDouble> cir) {
+        Counters.tempWipes++;
+    }
+
+    /** Eviction passes, where the cache evicts instead of wiping; optional for the same reason. */
+    @Inject(method = "evict", at = @At("HEAD"), require = 0)
+    private static void cc$evict(long now, org.spongepowered.asm.mixin.injection.callback.CallbackInfo ci) {
         Counters.tempWipes++;
     }
 
