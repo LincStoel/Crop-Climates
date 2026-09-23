@@ -16,6 +16,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.FluidState;
 import org.slf4j.Logger;
@@ -38,15 +39,19 @@ final class WorldCells implements RoomScan.Steps, RoomScan.Cells {
 
     private final ServerLevel level;
     private final int skyScan;
-    /** Column -> (y << 1 | result) of the last sky test in that column this scan. */
+    /** Column -> (y << 2 | tested-cell-was-air << 1 | result) of the last sky answer in that column this scan. */
     private final Long2LongOpenHashMap skyCache = new Long2LongOpenHashMap();
     /** Default-rule spread verdicts this scan, per source state: 0 unknown, 1 no, 2 yes, by inDir * 6 + outDir. */
     private final Map<BlockState, byte[]> stepMemo = new IdentityHashMap<>();
+
+    /** Cold Sweat's config names air itself - then air can't be assumed to let sky through. */
+    private final boolean airListed;
 
     WorldCells(ServerLevel level) {
         this.level = level;
         this.skyScan = CropClimatesConfig.GREENHOUSE_SKY_SCAN.get();
         skyCache.defaultReturnValue(Long.MIN_VALUE);
+        this.airListed = isSpreadListed(Blocks.AIR.defaultBlockState());
     }
 
     static boolean isAvailable() {
@@ -96,7 +101,8 @@ final class WorldCells implements RoomScan.Steps, RoomScan.Cells {
         long column = BlockPos.asLong(pos.getX(), 0, pos.getZ());
         long cached = skyCache.get(column);
         if (cached != Long.MIN_VALUE) {
-            int y = (int) (cached >> 1);
+            int y = (int) (cached >> 2);
+            boolean fromAir = (cached & 2L) != 0;
             boolean result = (cached & 1L) != 0;
             // Seeing sky from y means seeing it from anything above; being
             // blocked at y means being blocked below it too.
@@ -106,10 +112,36 @@ final class WorldCells implements RoomScan.Steps, RoomScan.Cells {
             if (!result && pos.getY() <= y) {
                 return false;
             }
+            // An air cell blocked at y has its blocker somewhere in the window
+            // above it (air never blocks). With nothing but air between y and
+            // pos, that same blocker is above pos and inside its window too, so
+            // pos is blocked as well - no need for another sky test, the costly
+            // part of a scan (Cold Sweat builds lists at every step up to the
+            // roof). Not so from a water cell: water itself is what Cold
+            // Sweat's default config says blocks, and the sky may be open above it.
+            if (!result && fromAir && airUpTo(pos, y)) {
+                skyCache.put(column, ((long) pos.getY() << 2) | 2L);
+                return false;
+            }
         }
         boolean result = WorldHelper.canSeeSky(level, pos, skyScan);
-        skyCache.put(column, ((long) pos.getY() << 1) | (result ? 1L : 0L));
+        boolean air = !airListed && level.getBlockState(pos).isAir();
+        skyCache.put(column, ((long) pos.getY() << 2) | (air ? 2L : 0L) | (result ? 1L : 0L));
         return result;
+    }
+
+    /** Whether every cell from just above {@code fromY} up to {@code pos} is air (and air stops no heat). */
+    private boolean airUpTo(BlockPos pos, int fromY) {
+        if (airListed) {
+            return false;
+        }
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos(pos.getX(), fromY + 1, pos.getZ());
+        for (int y = fromY + 1; y <= pos.getY(); y++) {
+            if (!level.getBlockState(cursor.setY(y)).isAir()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
