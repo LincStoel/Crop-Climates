@@ -6,8 +6,10 @@ public enum GreenhouseStatus {
     SCANNING,
     /** In a sealed room: shows the room's humidity. */
     GREENHOUSE,
-    /** Open to the sky (or too small to count): shows outdoor humidity. */
+    /** Open to the sky: shows outdoor humidity. */
     OUTDOOR,
+    /** Sealed, but smaller than the greenhouse minimum: shows outdoor humidity. */
+    TOO_SMALL,
     /** Sealed, but larger than the greenhouse cap: shows outdoor humidity. */
     TOO_LARGE,
     /** Greenhouses are turned off in the server config. */

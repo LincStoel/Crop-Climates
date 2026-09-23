@@ -19,7 +19,7 @@ import java.util.Optional;
  *   "humidity": [0.3, 0.7],       // 0-1, lo <= hi
  *   "hook": "CropGrowEvent",      // or "randomTick"; default CropGrowEvent
  *   "tree": false,                // saplings: wider tolerance, die back to a dead bush
- *   "aquatic": false,             // ignores humidity and uses water temperature while submerged
+ *   "aquatic": false,             // ignores humidity and sunlight while submerged
  *   "item": "minecraft:wheat_seeds", // tooltip item; default: the block's own item
  *   "regresses": true             // default depends on the block type
  * }

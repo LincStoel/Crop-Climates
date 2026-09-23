@@ -16,6 +16,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
 
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -29,6 +30,8 @@ import java.util.concurrent.ThreadLocalRandom;
  * reports on a plant that is still growing.
  */
 public class SoilTesterItem extends Item {
+
+    private static final int DEAD_BROWN = 0x8B5A2B;
 
     public SoilTesterItem(Properties properties) {
         super(properties);
@@ -63,13 +66,23 @@ public class SoilTesterItem extends Item {
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         if (!level.isClientSide()) {
-            // No block was targeted - read the ground the player is standing on.
-            report(level, player, player.blockPosition().below());
+            // No block was targeted - read the open cell the player is standing
+            // in, not the solid ground below it: canSeeSky(pos) is only true for
+            // a position at or above the terrain, so the ground block itself
+            // always reads as roofed, even outdoors.
+            report(level, player, player.blockPosition());
         }
         return InteractionResultHolder.success(player.getItemInHand(hand));
     }
 
     private static void report(Level level, Player player, BlockPos pos) {
+        if (level.getBlockState(pos).is(Blocks.DEAD_BUSH)) {
+            ClimateReport report = new ClimateReport(ClimateReport.key("soil_tester"));
+            report.row(ClimateReport.key("dead_bush",
+                    ClimateReport.key("dead_bush.dead").withColor(DEAD_BROWN)).withStyle(ChatFormatting.GRAY));
+            report.send(line -> player.displayClientMessage(line, false));
+            return;
+        }
         Reports.climate(level, pos, ClimateReport.key("soil_tester"), TemperatureUnits.forPlayer(player))
                 .send(line -> player.displayClientMessage(line, false));
     }

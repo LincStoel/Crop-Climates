@@ -5,6 +5,7 @@ import com.momosoftworks.coldsweat.common.entity.data.Preference;
 import com.momosoftworks.coldsweat.config.ConfigSettings;
 import com.mojang.logging.LogUtils;
 import com.worldtraveler.cropclimates.CropClimatesConfig;
+import com.worldtraveler.cropclimates.report.ClimateReport;
 import net.minecraft.world.entity.player.Player;
 import org.slf4j.Logger;
 
@@ -79,6 +80,16 @@ public final class TemperatureUnits {
     /** "72°F" / "22°C", rounded. */
     public static String format(double fahrenheit, CropClimatesConfig.Units units) {
         return Math.round(fromFahrenheit(fahrenheit, units)) + symbol(units);
+    }
+
+    /**
+     * {@link #format}, but with one decimal when rounding would make an
+     * out-of-band reading look inside {@code loF–hiF} - see
+     * {@link ClimateReport#nearEdge}.
+     */
+    public static String format(double fahrenheit, double loF, double hiF, CropClimatesConfig.Units units) {
+        return ClimateReport.nearEdge(fromFahrenheit(fahrenheit, units),
+                fromFahrenheit(loF, units), fromFahrenheit(hiF, units)) + symbol(units);
     }
 
     /** "98.2°F" / "36.8°C", one decimal. */

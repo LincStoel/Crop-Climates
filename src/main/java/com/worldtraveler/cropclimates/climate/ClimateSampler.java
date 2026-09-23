@@ -23,7 +23,7 @@ public final class ClimateSampler {
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    private record CacheKey(ResourceKey<Level> dimension, long packedPos, boolean water) {
+    private record CacheKey(ResourceKey<Level> dimension, long packedPos) {
     }
 
     private record CacheEntry(long tick, double fahrenheit) {
@@ -49,26 +49,8 @@ public final class ClimateSampler {
             return OptionalDouble.empty();
         }
 
-        return read(level, pos, false);
-    }
-
-    /**
-     * Water temperature in Fahrenheit for a submerged aquatic crop, or empty
-     * if it cannot be resolved right now. Shares the cache, read budget and
-     * kill switch with {@link #temperatureF}, distinguished by a bit in the
-     * key.
-     */
-    public static OptionalDouble waterTemperatureF(Level level, BlockPos pos) {
-        return read(level, pos, true);
-    }
-
-    private static OptionalDouble read(Level level, BlockPos pos, boolean water) {
-        if (!coldSweatAvailable) {
-            return OptionalDouble.empty();
-        }
-
         long now = level.getGameTime();
-        CacheKey key = new CacheKey(level.dimension(), packedCell(pos), water);
+        CacheKey key = new CacheKey(level.dimension(), packedCell(pos));
         CacheEntry hit = CACHE.get(key);
         // now < tick means the entry came from another world (singleplayer
         // world switch keeps statics alive) - never trust it.
@@ -84,11 +66,10 @@ public final class ClimateSampler {
 
         double mc;
         try {
-            mc = water ? WorldHelper.getWaterTemperatureAt(level, pos) : WorldHelper.getRoughTemperatureAt(level, pos);
+            mc = WorldHelper.getRoughTemperatureAt(level, pos);
         } catch (RuntimeException ex) {
             coldSweatAvailable = false;
-            LOGGER.warn("crop_climates: {} failed, temperature scoring disabled for this session",
-                    water ? "getWaterTemperatureAt" : "getRoughTemperatureAt", ex);
+            LOGGER.warn("crop_climates: getRoughTemperatureAt failed, temperature scoring disabled for this session", ex);
             return OptionalDouble.empty();
         }
         double fahrenheit = Temperature.convert(mc, Temperature.Units.MC, Temperature.Units.F, true);

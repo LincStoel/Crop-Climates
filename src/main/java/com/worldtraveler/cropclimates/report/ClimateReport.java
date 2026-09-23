@@ -7,6 +7,7 @@ import net.minecraft.network.chat.MutableComponent;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Consumer;
 
 /**
@@ -22,14 +23,21 @@ import java.util.function.Consumer;
  */
 public final class ClimateReport {
 
-    private static final String BORDER = "─".repeat(30);
+    private static final int BORDER_LENGTH = 30;
+    private static final String BORDER = "─".repeat(BORDER_LENGTH);
 
     private final List<Component> lines = new ArrayList<>();
 
     public ClimateReport(Component title) {
+        // The title eats into the border so the top line is no wider than the
+        // dividers and doesn't wrap. Letters run about half the width of a
+        // box-drawing dash on the default font; the server resolves the title
+        // in en_us, which is close enough for other languages.
+        int titleDashes = title.getString().length() / 2;
+        int tail = Math.max(3, BORDER_LENGTH - 3 - titleDashes);
         lines.add(Component.literal("┌─ ").withStyle(ChatFormatting.DARK_GRAY)
                 .append(title.copy().withStyle(ChatFormatting.GOLD))
-                .append(Component.literal(" " + BORDER).withStyle(ChatFormatting.DARK_GRAY)));
+                .append(Component.literal(" " + "─".repeat(tail)).withStyle(ChatFormatting.DARK_GRAY)));
     }
 
     public static MutableComponent key(String path, Object... args) {
@@ -42,14 +50,54 @@ public final class ClimateReport {
     }
 
     public static MutableComponent pct(double v) {
-        return value(Math.round(v * 100) + "%");
+        return pct(Math.round(v * 100) + "%", false);
     }
 
-    public static MutableComponent yesNo(boolean v) {
-        return key(v ? "true" : "false").withStyle(v ? ChatFormatting.GREEN : ChatFormatting.RED);
+    /** {@link #pct(double)}, with a decimal if rounding would hide that {@code v} is outside {@code lo–hi}. */
+    public static MutableComponent pct(double v, double lo, double hi) {
+        return pct(nearEdge(v * 100, lo * 100, hi * 100) + "%", false);
     }
 
-    /** {@code [ok]} / {@code [too low]} / {@code [too high]} for a value against a band. */
+    /** {@link #pct(double)}, blue with a trailing 🌧 while it's raining. */
+    public static MutableComponent pct(double v, boolean raining) {
+        return pct(Math.round(v * 100) + "%", raining);
+    }
+
+    /** {@link #pct(double, double, double)}, blue with a trailing 🌧 while it's raining. */
+    public static MutableComponent pct(double v, double lo, double hi, boolean raining) {
+        return pct(nearEdge(v * 100, lo * 100, hi * 100) + "%", raining);
+    }
+
+    private static MutableComponent pct(String text, boolean raining) {
+        MutableComponent c = Component.literal(text).withStyle(raining ? ChatFormatting.BLUE : ChatFormatting.WHITE);
+        return raining ? c.append(" 🌧") : c;
+    }
+
+    /**
+     * {@code v} as a whole number, unless it is outside {@code lo–hi} but
+     * would round to a number inside it - "71" beside "wants 71–91 ✘ too low"
+     * reads as a contradiction. Then it gets one decimal, rounded away from
+     * the band ("70.6"), so the shown number is always on the side the mark
+     * says. All three arguments are in display units.
+     */
+    public static String nearEdge(double v, double lo, double hi) {
+        long rounded = Math.round(v);
+        boolean looksInside = rounded >= Math.round(lo) && rounded <= Math.round(hi);
+        if (looksInside && v < lo) {
+            return String.format(Locale.ROOT, "%.1f", Math.floor(v * 10 + 1e-9) / 10);
+        }
+        if (looksInside && v > hi) {
+            return String.format(Locale.ROOT, "%.1f", Math.ceil(v * 10 - 1e-9) / 10);
+        }
+        return Long.toString(rounded);
+    }
+
+    /** A yellow ☀️ in sunlight, a gray ◯ without. */
+    public static MutableComponent sun(boolean v) {
+        return key(v ? "mark.sun" : "mark.no_sun").withStyle(v ? ChatFormatting.YELLOW : ChatFormatting.GRAY);
+    }
+
+    /** A tick, {@code ✘ too low} or {@code ✘ too high} for a value against a band. */
     public static MutableComponent mark(double v, double lo, double hi) {
         if (v >= lo && v <= hi) {
             return key("mark.ok").withStyle(ChatFormatting.GREEN);

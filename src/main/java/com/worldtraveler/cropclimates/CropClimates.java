@@ -35,6 +35,7 @@ import net.neoforged.neoforge.event.OnDatapackSyncEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.TagsUpdatedEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.level.BlockEvent;
 import net.neoforged.neoforge.event.level.LevelEvent;
 import net.neoforged.neoforge.event.level.block.CropGrowEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
@@ -99,6 +100,7 @@ public final class CropClimates {
         NeoForge.EVENT_BUS.addListener(LevelEvent.Load.class, Greenhouses::onLevelLoad);
         NeoForge.EVENT_BUS.addListener(LevelEvent.Unload.class, Greenhouses::onLevelUnload);
         NeoForge.EVENT_BUS.addListener(LevelTickEvent.Post.class, this::onLevelTick);
+        NeoForge.EVENT_BUS.addListener(BlockEvent.NeighborNotifyEvent.class, HygrometerEntity::onNeighborNotify);
         NeoForge.EVENT_BUS.addListener(PlayerEvent.PlayerLoggedOutEvent.class,
                 event -> VerdictPayloads.forget(event.getEntity().getUUID()));
     }

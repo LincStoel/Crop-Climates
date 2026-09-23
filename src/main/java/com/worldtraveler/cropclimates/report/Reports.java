@@ -12,8 +12,8 @@ import com.worldtraveler.cropclimates.greenhouse.Greenhouses;
 import com.worldtraveler.cropclimates.greenhouse.Room;
 import com.worldtraveler.cropclimates.growth.GrowthGovernor;
 import net.minecraft.ChatFormatting;
+import net.minecraft.Util;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.world.level.Level;
@@ -38,68 +38,94 @@ public final class Reports {
      * The Soil Tester / {@code /cropclimates explain} report for {@code pos}:
      * local climate, and for a governed plant its bands and multiplier.
      */
-    public static ClimateReport climate(Level level, BlockPos pos, Component title, CropClimatesConfig.Units units) {
+    public static ClimateReport climate(Level level, BlockPos clicked, Component title, CropClimatesConfig.Units units) {
         ClimateReport report = new ClimateReport(title);
-        String biomeId = level.getBiome(pos).unwrapKey().map(k -> k.location().toString()).orElse("unknown");
-        boolean seesSky = level.canSeeSky(pos);
+        BlockPos pos = GrowthGovernor.growingEnd(level, clicked);
+        BlockState state = level.getBlockState(pos);
+        Block block = state.getBlock();
+        ClimateBand band = ClimateBands.bandFor(block);
+        GrowthGovernor.GrowthReading reading = band == null ? null : GrowthGovernor.read(level, pos, state);
+
+        if (reading != null && reading.waiver() == GrowthGovernor.HumidityWaiver.SUBMERGED) {
+            submerged(report, level, pos, block, band, reading, units);
+            return report;
+        }
+
+        MutableComponent sunlight = ClimateReport.key("sunlight", ClimateReport.sun(level.canSeeSky(pos)))
+                .withStyle(ChatFormatting.GRAY);
         OptionalDouble tempF = ClimateSampler.temperatureF(level, pos);
 
         if (tempF.isEmpty()) {
-            report.row(ClimateReport.value(biomeId));
-            report.row("temp_unavailable");
-            report.row("sky", ClimateReport.yesNo(seesSky));
+            report.row(biomeName(level, pos));
+            report.row(ClimateReport.key("temp_unavailable").withStyle(ChatFormatting.GRAY).append("  ").append(sunlight));
             return report;
         }
 
         Room room = Greenhouses.roomAt(level, pos);
         HumiditySource.Outdoor outdoor = HumiditySource.outdoor(level, pos);
         double humidity = room != null ? room.humidity(level) : outdoor.humidity();
-        MutableComponent humidityText = ClimateReport.pct(humidity);
-        if (room == null && outdoor.raining()) {
-            humidityText.append(ClimateReport.key("raining").withStyle(ChatFormatting.AQUA));
-        }
+        boolean raining = room == null && outdoor.raining();
+        MutableComponent humidityText = band != null
+                ? ClimateReport.pct(humidity, band.moistLo(), band.moistHi(), raining)
+                : ClimateReport.pct(humidity, raining);
 
-        report.row(ClimateReport.value(biomeId).append(Component.literal("   "))
-                .append(ClimateReport.key("sky", ClimateReport.yesNo(seesSky)).withStyle(ChatFormatting.GRAY)));
-        report.row("temp_humidity", ClimateReport.value(TemperatureUnits.format(tempF.getAsDouble(), units)), humidityText);
+        report.row(room != null
+                ? ClimateReport.key("enclosed").withStyle(ChatFormatting.GREEN)
+                : biomeName(level, pos));
+        String tempText = band != null
+                ? TemperatureUnits.format(tempF.getAsDouble(), band.tempLo(), band.tempHi(), units)
+                : TemperatureUnits.format(tempF.getAsDouble(), units);
+        report.row(ClimateReport.key("conditions", ClimateReport.value(tempText), humidityText)
+                .withStyle(ChatFormatting.GRAY).append("  ").append(sunlight));
 
-        BlockState state = level.getBlockState(pos);
-        Block block = state.getBlock();
-        ClimateBand band = ClimateBands.bandFor(block);
-        if (band == null) {
-            return report;
-        }
-        GrowthGovernor.GrowthReading reading = GrowthGovernor.read(level, pos, state);
         if (reading == null) {
             return report;
         }
         GrowthGovernor.Conditions c = reading.conditions();
 
         report.divider();
-        report.row(ClimateReport.value(BuiltInRegistries.BLOCK.getKey(block)));
-
-        MutableComponent tempWant = ClimateReport.value(TemperatureUnits.formatRange(band.tempLo(), band.tempHi(), units));
-        if (c.waterTemp()) {
-            tempWant.append(ClimateReport.key("water").withStyle(ChatFormatting.DARK_GRAY));
-        }
-        report.row("wants_temp", tempWant, ClimateReport.mark(c.tempF(), band.tempLo(), band.tempHi()));
-
-        MutableComponent humidityMark = c.waiver() == GrowthGovernor.HumidityWaiver.SUBMERGED
-                ? ClimateReport.key("mark.ok").withStyle(ChatFormatting.GREEN)
-                : ClimateReport.mark(c.humidity(), band.moistLo(), band.moistHi());
+        report.row(block.getName().withStyle(ChatFormatting.YELLOW));
+        report.row("wants_temp", ClimateReport.value(TemperatureUnits.formatRange(band.tempLo(), band.tempHi(), units)),
+                ClimateReport.mark(c.tempF(), band.tempLo(), band.tempHi()));
         report.row("wants_humidity",
                 ClimateReport.value(Math.round(band.moistLo() * 100) + "–" + Math.round(band.moistHi() * 100) + "%"),
-                humidityMark);
-
-        if (c.waiver() == GrowthGovernor.HumidityWaiver.ENCLOSED) {
-            report.row(ClimateReport.key("enclosed", ClimateReport.pct(c.humidity())).withStyle(ChatFormatting.GREEN));
-        } else if (c.waiver() == GrowthGovernor.HumidityWaiver.SUBMERGED) {
-            report.row(ClimateReport.key("submerged").withStyle(ChatFormatting.GREEN));
-        }
+                ClimateReport.mark(c.humidity(), band.moistLo(), band.moistHi()));
 
         report.divider();
         growthRow(report, reading.total());
         return report;
+    }
+
+    /**
+     * An underwater crop: scored on the air temperature like any other, but
+     * neither humidity nor sunlight is held against it.
+     */
+    private static void submerged(ClimateReport report, Level level, BlockPos pos, Block block, ClimateBand band,
+                                  GrowthGovernor.GrowthReading reading, CropClimatesConfig.Units units) {
+        GrowthGovernor.Conditions c = reading.conditions();
+        report.row(biomeName(level, pos));
+        report.row(ClimateReport.key("conditions",
+                ClimateReport.value(TemperatureUnits.format(c.tempF(), band.tempLo(), band.tempHi(), units)),
+                ClimateReport.pct(c.humidity()))
+                .withStyle(ChatFormatting.GRAY));
+
+        report.divider();
+        report.row(block.getName().withStyle(ChatFormatting.YELLOW));
+        report.row("wants_temp",
+                ClimateReport.value(TemperatureUnits.formatRange(band.tempLo(), band.tempHi(), units)),
+                ClimateReport.mark(c.tempF(), band.tempLo(), band.tempHi()));
+
+        report.divider();
+        growthRow(report, reading.total());
+    }
+
+    /** The biome's display name, falling back to its id for biomes without a translation. */
+    private static MutableComponent biomeName(Level level, BlockPos pos) {
+        return level.getBiome(pos).unwrapKey()
+                .map(k -> Component.translatableWithFallback(Util.makeDescriptionId("biome", k.location()),
+                        k.location().toString()))
+                .orElseGet(() -> Component.literal("unknown"))
+                .withStyle(ChatFormatting.WHITE);
     }
 
     private static void growthRow(ClimateReport report, double total) {
@@ -107,11 +133,8 @@ public final class Reports {
         Verdict verdict = Verdict.of(total, growthMax);
         report.row("growth",
                 Component.literal(String.format(Locale.ROOT, "%.2f", total)).withStyle(verdict.color),
-                Component.literal(bar(total, growthMax)).withStyle(ChatFormatting.DARK_GRAY),
+                bar(total, growthMax, verdict.color),
                 verdict.label());
-        if (total < 0.85) {
-            report.row(ClimateReport.key("advice").withStyle(ChatFormatting.DARK_GRAY));
-        }
     }
 
     /**
@@ -121,53 +144,64 @@ public final class Reports {
     public static ClimateReport hygrometer(Level level, BlockPos pos, GreenhouseStatus status, @Nullable Room room,
                                            CropClimatesConfig.Units units) {
         ClimateReport report = new ClimateReport(ClimateReport.key("hygrometer"));
+        boolean greenhouse = status == GreenhouseStatus.GREENHOUSE && room != null;
+        BlockPos biomePos = greenhouse ? room.anchorPos() : pos;
+
+        OptionalDouble tempF = ClimateSampler.temperatureF(level, pos);
+        MutableComponent humidityText;
+        if (greenhouse) {
+            humidityText = ClimateReport.pct(room.humidity(level));
+        } else {
+            HumiditySource.Outdoor outdoor = HumiditySource.outdoor(level, pos);
+            humidityText = ClimateReport.pct(outdoor.humidity(), outdoor.raining());
+        }
+
+        MutableComponent conditions = (tempF.isPresent()
+                ? ClimateReport.key("conditions", ClimateReport.value(TemperatureUnits.format(tempF.getAsDouble(), units)), humidityText)
+                : ClimateReport.key("hygrometer.humidity", humidityText)).withStyle(ChatFormatting.GRAY);
+
+        MutableComponent biomeRow = biomeName(level, biomePos);
+        if (greenhouse) {
+            biomeRow = biomeRow.append("   ").append(ClimateReport.key("hygrometer.base",
+                    ClimateReport.pct(room.baseHumidity(level))).withStyle(ChatFormatting.GRAY));
+        } else {
+            biomeRow = biomeRow.append("   ").append(conditions);
+        }
+        report.row(biomeRow);
+        if (greenhouse) {
+            report.divider();
+        }
 
         switch (status) {
             case GREENHOUSE -> report.row(ClimateReport.key("hygrometer.greenhouse").withStyle(ChatFormatting.GREEN));
             case OUTDOOR -> report.row(ClimateReport.key("hygrometer.outdoor").withStyle(ChatFormatting.YELLOW));
+            case TOO_SMALL -> report.row(ClimateReport.key("hygrometer.too_small",
+                    ClimateReport.value(CropClimatesConfig.GREENHOUSE_MIN_VOLUME.get())).withStyle(ChatFormatting.YELLOW));
             case TOO_LARGE -> report.row(ClimateReport.key("hygrometer.too_large",
                     ClimateReport.value(CropClimatesConfig.greenhouseMaxVolume())).withStyle(ChatFormatting.YELLOW));
             case SCANNING -> report.row(ClimateReport.key("hygrometer.scanning").withStyle(ChatFormatting.GRAY));
             case DISABLED -> report.row(ClimateReport.key("hygrometer.disabled").withStyle(ChatFormatting.GRAY));
         }
 
-        if (status == GreenhouseStatus.GREENHOUSE && room != null) {
-            BlockPos anchor = room.anchorPos();
-            String biomeId = level.getBiome(anchor).unwrapKey().map(k -> k.location().toString()).orElse("unknown");
-            report.row("hygrometer.humidity", ClimateReport.pct(room.humidity(level)));
-            report.row("hygrometer.base", ClimateReport.value(biomeId), ClimateReport.pct(room.baseHumidity(level)));
+        if (greenhouse) {
+            report.row(conditions);
             report.divider();
-            report.row("hygrometer.size", ClimateReport.value(room.size()),
-                    ClimateReport.value(CropClimatesConfig.greenhouseMaxVolume()));
+            report.row("hygrometer.size", ClimateReport.value(room.size()));
             report.row("hygrometer.sources",
                     ClimateReport.value(room.sourceCount(EnclosureHumidity.Effect.WATER)),
                     ClimateReport.value(room.sourceCount(EnclosureHumidity.Effect.HUMIDIFIER)),
                     ClimateReport.value(room.sourceCount(EnclosureHumidity.Effect.DESICCANT)),
                     ClimateReport.value(room.sourceCount(EnclosureHumidity.Effect.LAVA)));
-        } else {
-            HumiditySource.Outdoor outdoor = HumiditySource.outdoor(level, pos);
-            String biomeId = level.getBiome(pos).unwrapKey().map(k -> k.location().toString()).orElse("unknown");
-            report.row("hygrometer.humidity", ClimateReport.pct(outdoor.humidity()));
-            report.row("hygrometer.base", ClimateReport.value(biomeId), ClimateReport.pct(outdoor.biome()));
-            if (outdoor.raining()) {
-                report.row(ClimateReport.key("hygrometer.rain").withStyle(ChatFormatting.AQUA));
-            }
-        }
-
-        OptionalDouble tempF = ClimateSampler.temperatureF(level, pos);
-        if (tempF.isPresent()) {
-            report.divider();
-            report.row("hygrometer.temp", ClimateReport.value(TemperatureUnits.format(tempF.getAsDouble(), units)));
         }
         return report;
     }
 
-    private static String bar(double total, double growthMax) {
+    /** {@code [||||||....]}: the filled part in the verdict colour, the rest dark grey. */
+    private static MutableComponent bar(double total, double growthMax, ChatFormatting color) {
         int filled = (int) Math.round((Math.min(total, growthMax) / growthMax) * 10);
-        StringBuilder sb = new StringBuilder("[");
-        for (int i = 0; i < 10; i++) {
-            sb.append(i < filled ? '|' : '.');
-        }
-        return sb.append(']').toString();
+        return Component.literal("[").withStyle(ChatFormatting.DARK_GRAY)
+                .append(Component.literal("|".repeat(filled)).withStyle(color))
+                .append(Component.literal(".".repeat(10 - filled)).withStyle(ChatFormatting.DARK_GRAY))
+                .append(Component.literal("]").withStyle(ChatFormatting.DARK_GRAY));
     }
 }

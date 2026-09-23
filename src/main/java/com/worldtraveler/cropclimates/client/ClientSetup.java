@@ -23,7 +23,9 @@ public final class ClientSetup {
     @SubscribeEvent
     public static void registerModels(ModelEvent.RegisterAdditional event) {
         event.register(HygrometerRenderer.FACE_MODEL);
+        event.register(HygrometerRenderer.DIAL_MODEL);
         event.register(HygrometerRenderer.NEEDLE_MODEL);
+        event.register(HygrometerRenderer.LIGHT_MODEL);
     }
 
     @SubscribeEvent

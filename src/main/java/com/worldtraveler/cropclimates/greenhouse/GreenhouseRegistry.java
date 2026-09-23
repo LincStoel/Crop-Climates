@@ -365,7 +365,11 @@ public final class GreenhouseRegistry extends SavedData {
             } else {
                 leaveRoom(probe, true);
             }
-            probe.status = result == RoomScan.Status.TOO_LARGE ? GreenhouseStatus.TOO_LARGE : GreenhouseStatus.OUTDOOR;
+            probe.status = switch (result) {
+                case TOO_LARGE -> GreenhouseStatus.TOO_LARGE;
+                case TOO_SMALL -> GreenhouseStatus.TOO_SMALL;
+                default -> GreenhouseStatus.OUTDOOR;
+            };
             probe.dueTick = now + stagger(probe, CropClimatesConfig.GREENHOUSE_UNSEALED_RETRY_INTERVAL.get());
         }
         if (activeInvalidated) {

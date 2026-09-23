@@ -9,8 +9,12 @@ import com.worldtraveler.cropclimates.climate.HumiditySource;
 import com.worldtraveler.cropclimates.greenhouse.Greenhouses;
 import com.worldtraveler.cropclimates.greenhouse.Room;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.GrowingPlantBodyBlock;
+import net.minecraft.world.level.block.GrowingPlantHeadBlock;
 import net.minecraft.world.level.block.state.BlockState;
 
 import javax.annotation.Nullable;
@@ -21,8 +25,7 @@ import java.util.OptionalDouble;
  * Soil Tester, {@code /cropclimates explain}, Jade and tooltip verdicts -
  * runs exactly the same math:
  * <ol>
- *   <li>{@link #resolve} reads the world: temperature (air, or water for a
- *       submerged aquatic crop), humidity, sky.</li>
+ *   <li>{@link #resolve} reads the world: temperature, humidity, sky.</li>
  *   <li>{@link #score} is pure: fits, curve, sky penalty.</li>
  * </ol>
  * Humidity comes from, in order: being submerged (aquatic crops - waived),
@@ -30,6 +33,9 @@ import java.util.OptionalDouble;
  * else the biome plus rain actually falling there.
  */
 public final class GrowthGovernor {
+
+    /** How far along a stalk {@link #growingEnd} will look for the growing end. */
+    private static final int MAX_STALK = 64;
 
     private GrowthGovernor() {
     }
@@ -43,7 +49,7 @@ public final class GrowthGovernor {
      * @param humidity      what the band is scored against (greenhouse, rain applied)
      * @param room          the greenhouse, when {@code waiver == ENCLOSED}
      */
-    public record Conditions(double tempF, boolean waterTemp, double biomeMoisture, double humidity,
+    public record Conditions(double tempF, double biomeMoisture, double humidity,
                              boolean raining, HumidityWaiver waiver, @Nullable Room room, boolean seesSky) {
     }
 
@@ -60,13 +66,9 @@ public final class GrowthGovernor {
     /** Reads the world for {@code band} at {@code pos}; {@code null} if temperature is unavailable. */
     @Nullable
     public static Conditions resolve(Level level, BlockPos pos, ClimateBand band) {
-        boolean submerged = band.aquatic()
-                && CropClimatesConfig.AQUATIC_USES_WATER_TEMPERATURE.get()
-                && level.getFluidState(pos).is(FluidTags.WATER);
+        boolean submerged = band.aquatic() && level.getFluidState(pos).is(FluidTags.WATER);
 
-        OptionalDouble tempF = submerged
-                ? ClimateSampler.waterTemperatureF(level, pos)
-                : ClimateSampler.temperatureF(level, pos);
+        OptionalDouble tempF = ClimateSampler.temperatureF(level, pos);
         if (tempF.isEmpty()) {
             return null;
         }
@@ -90,8 +92,10 @@ public final class GrowthGovernor {
             raining = outdoor.raining();
         }
 
-        return new Conditions(tempF.getAsDouble(), submerged, outdoor.biome(), humidity, raining, waiver, room,
-                level.canSeeSky(pos));
+        // Water dims skylight a level per block, so a submerged crop would
+        // never "see the sky" - sunlight is not held against it.
+        return new Conditions(tempF.getAsDouble(), outdoor.biome(), humidity, raining, waiver, room,
+                submerged || level.canSeeSky(pos));
     }
 
     /** Pure scoring of already-resolved conditions. */
@@ -127,5 +131,36 @@ public final class GrowthGovernor {
             return null;
         }
         return score(band, conditions, ClimateBands.isSapling(state.getBlock()));
+    }
+
+    /**
+     * The block that actually grows for whatever part of a plant was clicked
+     * or looked at: the head of a kelp or vine stalk, or the top of a bamboo,
+     * sugar cane or cactus column. Anything else is returned as is. The Soil
+     * Tester and Jade both read here, since temperature can change along a
+     * tall stalk and only this block's reading drives growth.
+     */
+    public static BlockPos growingEnd(Level level, BlockPos pos) {
+        Block block = level.getBlockState(pos).getBlock();
+        if (block instanceof GrowingPlantBodyBlock) {
+            for (Direction dir : new Direction[]{Direction.UP, Direction.DOWN}) {
+                BlockPos.MutableBlockPos cursor = pos.mutable();
+                for (int i = 0; i < MAX_STALK && level.getBlockState(cursor).is(block); i++) {
+                    cursor.move(dir);
+                }
+                if (level.getBlockState(cursor).getBlock() instanceof GrowingPlantHeadBlock) {
+                    return cursor.immutable();
+                }
+            }
+            return pos;
+        }
+        if (ClimateBands.bandFor(block) != null && level.getBlockState(pos.above()).is(block)) {
+            BlockPos.MutableBlockPos cursor = pos.mutable();
+            for (int i = 0; i < MAX_STALK && level.getBlockState(cursor.above()).is(block); i++) {
+                cursor.move(Direction.UP);
+            }
+            return cursor.immutable();
+        }
+        return pos;
     }
 }

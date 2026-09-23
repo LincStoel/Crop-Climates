@@ -52,8 +52,6 @@ public final class CropClimatesConfig {
     public static final ModConfigSpec.DoubleValue GREENHOUSE_DUST_HUMIDITY;
     public static final ModConfigSpec.DoubleValue GREENHOUSE_DUST_RATE;
 
-    public static final ModConfigSpec.BooleanValue AQUATIC_USES_WATER_TEMPERATURE;
-
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
 
@@ -97,7 +95,7 @@ public final class CropClimatesConfig {
         RAIN_HUMIDITY_SHIFT = builder
                 .comment("Added to humidity for as long as rain is actually falling on a crop (or an outdoor Hygrometer). " +
                         "Roofs, glass included, and sealed greenhouses block it.")
-                .defineInRange("rainHumidityShift", 0.25, 0.0, 1.0);
+                .defineInRange("rainHumidityShift", 0.15, 0.0, 1.0);
         builder.pop();
 
         builder.push("regression");
@@ -135,10 +133,10 @@ public final class CropClimatesConfig {
                 .comment("Together with greenhouseMaxHeight, sets the largest greenhouse: a room may hold at most " +
                         "(2 * radius + 1)^2 * height interior cells (air, water, crops - not walls). Bigger rooms read as too large. " +
                         "Only the cell count is capped; the room's shape is free.")
-                .defineInRange("greenhouseMaxRadius", 16, 1, 1024);
+                .defineInRange("greenhouseMaxRadius", 32, 1, 1024);
         GREENHOUSE_MAX_HEIGHT = builder
-                .comment("See greenhouseMaxRadius.")
-                .defineInRange("greenhouseMaxHeight", 12, 1, 4096);
+                .comment("See greenhouseMaxRadius. Large spruce trees grow to a max of 32 blocks tall for reference.")
+                .defineInRange("greenhouseMaxHeight", 34, 1, 4096);
         GREENHOUSE_MIN_VOLUME = builder
                 .comment("Smallest sealed room, in interior cells, that counts as a greenhouse.")
                 .defineInRange("greenhouseMinVolume", 12, 1, Integer.MAX_VALUE);
@@ -176,12 +174,6 @@ public final class CropClimatesConfig {
                 .comment("Dust motes per second for every 100 interior cells of a greenhouse at/below the dust humidity, " +
                         "rising slowly from random spots on its floor. Only spawned with a player nearby.")
                 .defineInRange("greenhouseDustRate", 0.25, 0.0, 100.0);
-        builder.pop();
-
-        builder.push("aquatic");
-        AQUATIC_USES_WATER_TEMPERATURE = builder
-                .comment("Submerged aquatic crops score against Cold Sweat's water temperature instead of air.")
-                .define("aquaticUsesWaterTemperature", true);
         builder.pop();
 
         SPEC = builder.build();

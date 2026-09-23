@@ -14,8 +14,8 @@ saplings die off. Temperature is read live from Cold Sweat, so hearths and
 iceboxes shape a farm's climate. Rain raises humidity where it actually falls.
 Hang a Hygrometer inside a sealed room to turn it into a greenhouse: water and
 wet sponges humidify it, lava and dry sponges dry it out, and every crop inside
-grows by the room's humidity instead of the biome's. Aquatic crops score
-against water temperature while submerged. Per-crop bands ship as datapacks
+grows by the room's humidity instead of the biome's. Submerged aquatic crops
+ignore humidity and sunlight. Per-crop bands ship as datapacks
 that skip silently when the owning mod is absent. Cold Sweat is the only hard
 dependency; Jade support is optional.
 '''

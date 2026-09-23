@@ -33,6 +33,7 @@ import net.minecraft.world.level.block.DiodeBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.event.level.BlockEvent;
 
 import javax.annotation.Nullable;
 
@@ -104,6 +105,23 @@ public class HygrometerEntity extends HangingEntity {
         BlockState behind = level().getBlockState(pos.relative(direction.getOpposite()));
         return (behind.isSolid() || DiodeBlock.isDiode(behind))
                 && level().getEntities(this, getBoundingBox(), HANGING_ENTITY).isEmpty();
+    }
+
+    /**
+     * Drops hygrometers the moment the block holding them goes, like a torch,
+     * instead of waiting for {@link HangingEntity}'s 100-tick survival check.
+     */
+    public static void onNeighborNotify(BlockEvent.NeighborNotifyEvent event) {
+        if (!(event.getLevel() instanceof ServerLevel level) || event.getState().isSolid()) {
+            return;
+        }
+        for (HygrometerEntity hygrometer : level.getEntitiesOfClass(
+                HygrometerEntity.class, new AABB(event.getPos()).inflate(1.0))) {
+            if (!hygrometer.isRemoved() && !hygrometer.survives()) {
+                hygrometer.discard();
+                hygrometer.dropItem(null);
+            }
+        }
     }
 
     @Override

@@ -12,7 +12,7 @@ class RegressionTest {
             ClimateBand.Hook.CROP_GROW_EVENT, true);
 
     private static GrowthGovernor.GrowthReading reading(double tempF, double humidity, double fitT, double fitM) {
-        GrowthGovernor.Conditions c = new GrowthGovernor.Conditions(tempF, false, humidity, humidity, false,
+        GrowthGovernor.Conditions c = new GrowthGovernor.Conditions(tempF, humidity, humidity, false,
                 GrowthGovernor.HumidityWaiver.NONE, null, true);
         return new GrowthGovernor.GrowthReading(0.1, fitT, fitM, c);
     }

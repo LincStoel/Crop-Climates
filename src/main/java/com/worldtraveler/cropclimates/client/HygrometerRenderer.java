@@ -4,6 +4,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import com.worldtraveler.cropclimates.CropClimates;
 import com.worldtraveler.cropclimates.entity.HygrometerEntity;
+import com.worldtraveler.cropclimates.greenhouse.GreenhouseStatus;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.Sheets;
 import net.minecraft.client.renderer.block.BlockRenderDispatcher;
@@ -17,6 +18,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 
+import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.WeakHashMap;
 
@@ -32,8 +34,12 @@ public class HygrometerRenderer extends EntityRenderer<HygrometerEntity> {
 
     public static final ModelResourceLocation FACE_MODEL = ModelResourceLocation.standalone(
             ResourceLocation.fromNamespaceAndPath(CropClimates.MOD_ID, "entity/hygrometer_face"));
+    public static final ModelResourceLocation DIAL_MODEL = ModelResourceLocation.standalone(
+            ResourceLocation.fromNamespaceAndPath(CropClimates.MOD_ID, "entity/hygrometer_dial"));
     public static final ModelResourceLocation NEEDLE_MODEL = ModelResourceLocation.standalone(
             ResourceLocation.fromNamespaceAndPath(CropClimates.MOD_ID, "entity/hygrometer_needle"));
+    public static final ModelResourceLocation LIGHT_MODEL = ModelResourceLocation.standalone(
+            ResourceLocation.fromNamespaceAndPath(CropClimates.MOD_ID, "entity/hygrometer_light"));
 
     /** Dial centre (the pin on the face texture) in model space, block pixels / 16. */
     private static final float PIVOT_X = 8.0F / 16.0F;
@@ -62,7 +68,14 @@ public class HygrometerRenderer extends EntityRenderer<HygrometerEntity> {
         poseStack.translate(-0.5F, -0.5F, -0.5F);
 
         var models = blockRenderer.getBlockModelShaper().getModelManager();
-        renderModel(poseStack, buffer, models.getModel(FACE_MODEL), packedLight);
+        renderModel(poseStack, buffer, models.getModel(DIAL_MODEL), packedLight, 1.0F, 1.0F, 1.0F);
+        renderModel(poseStack, buffer, models.getModel(FACE_MODEL), packedLight, 1.0F, 1.0F, 1.0F);
+
+        float[] lightColor = lightColor(entity.status());
+        if (lightColor != null) {
+            renderModel(poseStack, buffer, models.getModel(LIGHT_MODEL), packedLight,
+                    lightColor[0], lightColor[1], lightColor[2]);
+        }
 
         float target = (Mth.clamp(entity.humidity(), 0.0F, 1.0F) - 0.5F) * SWEEP_DEGREES;
         float angle = shownAngle.getOrDefault(entity, target);
@@ -72,13 +85,24 @@ public class HygrometerRenderer extends EntityRenderer<HygrometerEntity> {
         poseStack.translate(PIVOT_X, PIVOT_Y, 0.0F);
         poseStack.mulPose(Axis.ZP.rotationDegrees(angle));
         poseStack.translate(-PIVOT_X, -PIVOT_Y, 0.0F);
-        renderModel(poseStack, buffer, models.getModel(NEEDLE_MODEL), packedLight);
+        renderModel(poseStack, buffer, models.getModel(NEEDLE_MODEL), packedLight, 1.0F, 1.0F, 1.0F);
         poseStack.popPose();
     }
 
-    private void renderModel(PoseStack poseStack, MultiBufferSource buffer, BakedModel model, int packedLight) {
+    /** The status light's color, or null when nothing sealed the room to judge. */
+    @Nullable
+    private static float[] lightColor(GreenhouseStatus status) {
+        return switch (status) {
+            case GREENHOUSE -> new float[]{0.2F, 1.0F, 0.2F};
+            case TOO_SMALL, TOO_LARGE -> new float[]{1.0F, 0.15F, 0.15F};
+            default -> null;
+        };
+    }
+
+    private void renderModel(PoseStack poseStack, MultiBufferSource buffer, BakedModel model, int packedLight,
+                             float red, float green, float blue) {
         blockRenderer.getModelRenderer().renderModel(poseStack.last(), buffer.getBuffer(Sheets.cutoutBlockSheet()),
-                null, model, 1.0F, 1.0F, 1.0F, packedLight, OverlayTexture.NO_OVERLAY);
+                null, model, red, green, blue, packedLight, OverlayTexture.NO_OVERLAY);
     }
 
     @Override

@@ -8,9 +8,11 @@ import com.worldtraveler.cropclimates.growth.GrowthGovernor;
 import com.worldtraveler.cropclimates.report.ClimateReport;
 import com.worldtraveler.cropclimates.report.Verdict;
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import snownee.jade.api.BlockAccessor;
 import snownee.jade.api.EntityAccessor;
@@ -59,8 +61,11 @@ public final class CropClimatesJadePlugin implements IWailaPlugin {
 
         @Override
         public void appendServerData(CompoundTag data, BlockAccessor accessor) {
-            GrowthGovernor.GrowthReading reading =
-                    GrowthGovernor.read(accessor.getLevel(), accessor.getPosition(), accessor.getBlockState());
+            // Score the growing end, like the Soil Tester, so every block of
+            // a tall stalk shows the verdict that actually drives its growth.
+            Level level = accessor.getLevel();
+            BlockPos pos = GrowthGovernor.growingEnd(level, accessor.getPosition());
+            GrowthGovernor.GrowthReading reading = GrowthGovernor.read(level, pos, level.getBlockState(pos));
             if (reading != null) {
                 data.putInt(VERDICT_KEY, Verdict.of(reading.total(), CropClimatesConfig.GROWTH_MAX.get()).ordinal());
             }

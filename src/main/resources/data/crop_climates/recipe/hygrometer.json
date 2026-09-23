@@ -3,13 +3,12 @@
   "category": "misc",
   "pattern": [
     " C ",
-    "CGC",
-    " S "
+    "CRC",
+    " C "
   ],
   "key": {
-    "C": { "item": "minecraft:copper_ingot" },
-    "G": { "item": "minecraft:glass_pane" },
-    "S": { "item": "minecraft:string" }
+    "C": { "tag": "c:ingots/copper" },
+    "R": { "item": "minecraft:redstone" }
   },
   "result": {
     "id": "crop_climates:hygrometer",
