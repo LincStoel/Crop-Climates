@@ -4,7 +4,7 @@ package com.worldtraveler.cropclimates.climate;
  * Pure aggregation math for enclosed humidity - no Minecraft world access, so
  * it is unit-testable without a level, exactly as {@link GrowthModel} is
  * pure. Classification of individual cells (fluid/tag lookups) is world-backed
- * and lives in {@code EnclosureSampler}; this class only turns an already
+ * and lives in {@code greenhouse.WorldCells}; this class only turns an already
  * summed weight into a humidity delta.
  */
 public final class EnclosureHumidity {

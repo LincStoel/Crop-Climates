@@ -1,0 +1,67 @@
+{
+  "textures": {
+    "needle": "crop_climates:block/hygrometer_needle",
+    "particle": "crop_climates:block/hygrometer_needle"
+  },
+  "elements": [
+    {
+      "from": [
+        7.625,
+        7.625,
+        15.2
+      ],
+      "to": [
+        8.375,
+        11.25,
+        15.5
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#needle"
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            5,
+            16
+          ],
+          "texture": "#needle"
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            5,
+            16
+          ],
+          "texture": "#needle"
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            12,
+            5
+          ],
+          "texture": "#needle"
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            12,
+            5
+          ],
+          "texture": "#needle"
+        }
+      }
+    }
+  ]
+}

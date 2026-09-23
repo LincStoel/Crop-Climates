@@ -1,0 +1,32 @@
+{
+  "textures": {
+    "light": "crop_climates:block/hygrometer_light",
+    "particle": "crop_climates:block/hygrometer_light"
+  },
+  "elements": [
+    {
+      "from": [
+        4.25,
+        5.75,
+        14.95
+      ],
+      "to": [
+        5.0,
+        6.5,
+        14.95
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#light",
+          "tintindex": 0
+        }
+      }
+    }
+  ]
+}

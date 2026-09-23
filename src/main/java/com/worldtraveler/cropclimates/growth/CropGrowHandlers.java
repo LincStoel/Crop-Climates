@@ -1,6 +1,7 @@
 package com.worldtraveler.cropclimates.growth;
 
 import com.worldtraveler.cropclimates.CropClimatesConfig;
+import com.worldtraveler.cropclimates.climate.ClimateBands;
 import com.mojang.logging.LogUtils;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -11,10 +12,10 @@ import org.slf4j.Logger;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * {@code CropGrowEvent.Pre}/{@code .Post} - the 61-plant hook (everything
- * that funnels through {@code CommonHooks.canCropGrow}). Mirrors
- * {@code crop_growth.js}'s NativeEvents handlers exactly, including the
- * re-entrancy flag and the graduated error budget.
+ * {@code CropGrowEvent.Pre}/{@code .Post} - the hook for every plant that
+ * funnels through {@code CommonHooks.canCropGrow}. Slows growth by vetoing
+ * ticks and speeds it up by driving one extra random tick, guarded by a
+ * re-entrancy flag and a graduated error budget.
  *
  * <p>A random-tick hook must never be able to crash a world: every entry
  * point here is wrapped, failures are logged up to
@@ -41,11 +42,26 @@ public final class CropGrowHandlers {
         return forcing;
     }
 
+    public static int errorCount() {
+        return errors.get();
+    }
+
+    public static boolean isSpeedupAvailable() {
+        return speedupOk;
+    }
+
     public static void onPre(CropGrowEvent.Pre event) {
         if (disabled) {
             return;
         }
         try {
+            // Plants governed at randomTick (saplings, "hook": "randomTick") are
+            // slowed and sped up there. Many of them also fire CropGrowEvent from
+            // inside that tick; governing it again would square the slow-down and
+            // turn their extra tick into a forced growth.
+            if (ClimateBands.isRandomTickGoverned(event.getState().getBlock())) {
+                return;
+            }
             if (forcing) {
                 // We are driving the extra tick ourselves - it must succeed.
                 event.setResult(CropGrowEvent.Pre.Result.GROW);
@@ -53,12 +69,13 @@ public final class CropGrowHandlers {
             }
             ServerLevel level = (ServerLevel) event.getLevel();
             BlockPos pos = event.getPos();
-            GrowthGovernor.GrowthReading reading = GrowthGovernor.read(level, pos, event.getState(), false);
+            GrowthGovernor.GrowthReading reading = GrowthGovernor.read(level, pos, event.getState());
             if (reading == null || reading.total() >= 1.0) {
                 return;
             }
             if (level.getRandom().nextDouble() >= reading.total()) {
                 event.setResult(CropGrowEvent.Pre.Result.DO_NOT_GROW);
+                Regression.consider(level, pos, event.getState(), reading);
             }
         } catch (RuntimeException ex) {
             fail("CropGrowEvent.Pre", ex);
@@ -66,13 +83,13 @@ public final class CropGrowHandlers {
     }
 
     public static void onPost(CropGrowEvent.Post event) {
-        if (disabled || forcing) {
+        if (disabled || forcing || ClimateBands.isRandomTickGoverned(event.getState().getBlock())) {
             return;
         }
         try {
             ServerLevel level = (ServerLevel) event.getLevel();
             BlockPos pos = event.getPos();
-            GrowthGovernor.GrowthReading reading = GrowthGovernor.read(level, pos, event.getState(), false);
+            GrowthGovernor.GrowthReading reading = GrowthGovernor.read(level, pos, event.getState());
             if (reading == null || reading.total() <= 1.0) {
                 return;
             }
@@ -104,6 +121,13 @@ public final class CropGrowHandlers {
         }
     }
 
+    /** Called when a server stops, so the next one (another singleplayer world) starts governed again. */
+    public static void reset() {
+        disabled = false;
+        speedupOk = true;
+        errors.set(0);
+    }
+
     public static void fail(String where, RuntimeException ex) {
         int count = errors.incrementAndGet();
         int limit = CropClimatesConfig.ERROR_LIMIT.get();
@@ -113,7 +137,7 @@ public final class CropGrowHandlers {
         if (count >= limit) {
             disabled = true;
             LOGGER.error("crop_climates: too many errors, DISABLING climate growth for this session. "
-                    + "Plants revert to vanilla speed. Fix the error above and /reload.");
+                    + "Plants revert to vanilla speed. Fix the error above and restart the server.");
         }
     }
 }

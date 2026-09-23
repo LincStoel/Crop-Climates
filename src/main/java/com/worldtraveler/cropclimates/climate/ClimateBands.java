@@ -1,50 +1,78 @@
 package com.worldtraveler.cropclimates.climate;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.mojang.logging.LogUtils;
+import com.mojang.serialization.JsonOps;
+import com.worldtraveler.cropclimates.CropClimatesConfig;
+import net.minecraft.core.Holder;
+import net.minecraft.core.HolderSet;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.FileToIdConverter;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.server.packs.resources.ResourceManager;
-import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
+import net.minecraft.server.packs.resources.SimplePreparableReloadListener;
+import net.minecraft.tags.TagKey;
 import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.CocoaBlock;
+import net.minecraft.world.level.block.CropBlock;
+import net.minecraft.world.level.block.NetherWartBlock;
+import net.minecraft.world.level.block.StemBlock;
+import net.minecraft.world.level.block.SweetBerryBushBlock;
 import org.slf4j.Logger;
 
+import java.io.Reader;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 /**
- * Reload listener on folder {@code crop_climate}, replacing both copies of
- * {@code crop_climate_loader.js} (server and client - a single server-side map
- * plus the synced tooltip table covers both here, see {@code ClimateSyncPayload}).
+ * Reload listener on folder {@code crop_climate}. One file per owning
+ * namespace, keys are block paths: the file's own name supplies the namespace
+ * for un-namespaced keys, so {@code data/<any>/crop_climate/minecraft.json},
+ * key {@code "wheat"}, resolves to block {@code minecraft:wheat}. A key may
+ * also be a full id ({@code "farmersdelight:tomatoes"}) or a block tag
+ * ({@code "#c:crops"}).
  *
- * <p>Format is unchanged from the existing datapack: one file per owning
- * namespace, keys are block paths. The file's own name (the path component of
- * its resource location, after {@link SimpleJsonResourceReloadListener} strips
- * the {@code crop_climate/} directory and {@code .json} suffix) supplies the
- * namespace for un-namespaced keys - so {@code data/<any>/crop_climate/minecraft.json},
- * key {@code "wheat"}, resolves to block {@code minecraft:wheat} regardless of
- * which datapack namespace the file itself lives under.
+ * <p>Every datapack's copy of the same file is read, lowest pack first, and
+ * merged key by key - a pack can retune one crop without copying the whole
+ * file. Exact block keys always beat tag keys; among tags, the entry read
+ * later wins.
+ *
+ * <p>Tags are not bound yet when reload listeners run, so {@link #apply} only
+ * stores the parsed entries. {@link #resolve} binds them to blocks once the
+ * server's tags are live ({@code TagsUpdatedEvent}), which also runs before
+ * the datapack sync that feeds client tooltips.
+ *
+ * <p>Blocks on the config's blacklist are dropped here, so they get no band
+ * and nothing in the mod governs, wilts or reports on them. The blacklist is
+ * re-applied whenever the server config loads or changes.
  */
-public final class ClimateBands extends SimpleJsonResourceReloadListener {
+public final class ClimateBands extends SimplePreparableReloadListener<List<ClimateBands.Parsed>> {
 
     private static final Logger LOGGER = LogUtils.getLogger();
-    private static final Gson GSON = new Gson();
+    private static final FileToIdConverter FILES = FileToIdConverter.json("crop_climate");
 
+    /** One parsed entry, in read order. {@code tag} entries name a block tag in {@code id}. */
+    public record Parsed(ResourceLocation id, boolean tag, BandSpec spec, ResourceLocation source) {
+    }
+
+    private static volatile List<Parsed> PARSED = List.of();
     private static volatile Map<Block, ClimateBand> BLOCK_BANDS = Map.of();
     private static volatile Set<Block> SAPLINGS = Set.of();
     private static volatile Set<Block> OWN_TICK = Set.of();
     private static volatile Map<Item, ClimateBand> ITEM_BANDS = Map.of();
-
-    public ClimateBands() {
-        super(GSON, "crop_climate");
-    }
+    private static volatile Set<Block> BLACKLISTED = Set.of();
 
     public static ClimateBand bandFor(Block block) {
         return BLOCK_BANDS.get(block);
@@ -62,83 +90,142 @@ public final class ClimateBands extends SimpleJsonResourceReloadListener {
         return ITEM_BANDS;
     }
 
+    public static Map<Block, ClimateBand> blockBands() {
+        return BLOCK_BANDS;
+    }
+
+    /** Whether the config's blacklist excludes {@code block} from the mod. */
+    public static boolean isBlacklisted(Block block) {
+        return BLACKLISTED.contains(block);
+    }
+
     @Override
-    protected void apply(Map<ResourceLocation, JsonElement> resources, ResourceManager resourceManager, ProfilerFiller profiler) {
+    protected List<Parsed> prepare(ResourceManager resourceManager, ProfilerFiller profiler) {
+        List<Parsed> parsed = new ArrayList<>();
+        for (Map.Entry<ResourceLocation, List<Resource>> stack : FILES.listMatchingResourceStacks(resourceManager).entrySet()) {
+            ResourceLocation fileId = FILES.fileToId(stack.getKey());
+            String ownerNamespace = fileId.getPath();
+            for (Resource resource : stack.getValue()) {
+                String source = fileId + " (" + resource.sourcePackId() + ")";
+                JsonElement json;
+                try (Reader reader = resource.openAsReader()) {
+                    json = JsonParser.parseReader(reader);
+                } catch (Exception ex) {
+                    LOGGER.error("crop_climates: could not read crop_climate file {} - {}", source, ex.toString());
+                    continue;
+                }
+                if (!json.isJsonObject()) {
+                    LOGGER.error("crop_climates: skipping crop_climate file {} - not a JSON object", source);
+                    continue;
+                }
+                readFile(json.getAsJsonObject(), ownerNamespace, fileId, source, parsed);
+            }
+        }
+        return parsed;
+    }
+
+    private static void readFile(JsonObject file, String ownerNamespace, ResourceLocation fileId, String source, List<Parsed> out) {
+        for (Map.Entry<String, JsonElement> entry : file.entrySet()) {
+            String key = entry.getKey();
+            boolean tag = key.startsWith("#");
+            String raw = tag ? key.substring(1) : key;
+            ResourceLocation id = raw.indexOf(':') >= 0
+                    ? ResourceLocation.tryParse(raw)
+                    : ResourceLocation.tryBuild(ownerNamespace, raw);
+            if (id == null) {
+                LOGGER.warn("crop_climates: skipping '{}' in {} - not a valid id", key, source);
+                continue;
+            }
+            BandSpec.CODEC.parse(JsonOps.INSTANCE, entry.getValue())
+                    .resultOrPartial(error -> LOGGER.warn("crop_climates: skipping '{}' in {} - {}", key, source, error))
+                    .ifPresent(spec -> out.add(new Parsed(id, tag, spec, fileId)));
+        }
+    }
+
+    @Override
+    protected void apply(List<Parsed> parsed, ResourceManager resourceManager, ProfilerFiller profiler) {
+        PARSED = List.copyOf(parsed);
+    }
+
+    /** Binds the parsed entries to blocks. Call once block tags are live. */
+    public static void resolve() {
         Map<Block, ClimateBand> blockBands = new HashMap<>();
+        Map<Block, ResourceLocation> tagOwner = new HashMap<>();
+        Map<Block, Parsed> winners = new HashMap<>();
+        Set<Block> exact = new HashSet<>();
+        int skipped = 0;
+
+        for (Parsed entry : PARSED) {
+            if (entry.tag()) {
+                continue;
+            }
+            Optional<Block> block = BuiltInRegistries.BLOCK.getOptional(entry.id());
+            if (block.isEmpty()) {
+                skipped++;
+                LOGGER.debug("crop_climates: {} in {} has no matching block, skipping", entry.id(), entry.source());
+                continue;
+            }
+            exact.add(block.get());
+            winners.put(block.get(), entry);
+        }
+
+        for (Parsed entry : PARSED) {
+            if (!entry.tag()) {
+                continue;
+            }
+            TagKey<Block> tagKey = TagKey.create(Registries.BLOCK, entry.id());
+            Optional<HolderSet.Named<Block>> members = BuiltInRegistries.BLOCK.getTag(tagKey);
+            if (members.isEmpty()) {
+                LOGGER.debug("crop_climates: tag #{} in {} is empty or unknown, skipping", entry.id(), entry.source());
+                continue;
+            }
+            for (Holder<Block> holder : members.get()) {
+                Block block = holder.value();
+                if (exact.contains(block)) {
+                    continue;
+                }
+                ResourceLocation previous = tagOwner.put(block, entry.id());
+                if (previous != null && !previous.equals(entry.id())) {
+                    LOGGER.warn("crop_climates: {} is in both #{} and #{} - using #{}, the one read later",
+                            BuiltInRegistries.BLOCK.getKey(block), previous, entry.id(), entry.id());
+                }
+                winners.put(block, entry);
+            }
+        }
+
+        Set<Block> blacklisted = blacklistedBlocks();
+        int excluded = 0;
+        for (Block block : blacklisted) {
+            if (winners.remove(block) != null) {
+                excluded++;
+            }
+        }
+
         Set<Block> saplings = new HashSet<>();
         Set<Block> ownTick = new HashSet<>();
         Map<Item, String> itemToShortestBlockId = new HashMap<>();
         Map<Item, ClimateBand> itemBands = new HashMap<>();
 
-        int plants = 0;
-        int saplingCount = 0;
-        int ownTickCount = 0;
-        int skipped = 0;
+        for (Map.Entry<Block, Parsed> winner : winners.entrySet()) {
+            Block block = winner.getKey();
+            BandSpec spec = winner.getValue().spec();
+            ClimateBand band = spec.toBand(regressesByDefault(block, spec.tree()));
+            blockBands.put(block, band);
 
-        for (Map.Entry<ResourceLocation, JsonElement> fileEntry : resources.entrySet()) {
-            String ownerNamespace = fileEntry.getKey().getPath();
-            if (!fileEntry.getValue().isJsonObject()) {
-                LOGGER.error("crop_climates: skipping malformed crop_climate file {} - not a JSON object", fileEntry.getKey());
-                continue;
+            if (band.hook() == ClimateBand.Hook.RANDOM_TICK) {
+                (band.tree() ? saplings : ownTick).add(block);
             }
-            JsonObject file = fileEntry.getValue().getAsJsonObject();
 
-            for (Map.Entry<String, JsonElement> keyEntry : file.entrySet()) {
-                String key = keyEntry.getKey();
-                try {
-                    ResourceLocation blockId = key.indexOf(':') >= 0
-                            ? ResourceLocation.parse(key)
-                            : ResourceLocation.fromNamespaceAndPath(ownerNamespace, key);
-
-                    java.util.Optional<Block> block = BuiltInRegistries.BLOCK.getOptional(blockId);
-                    if (block.isEmpty()) {
-                        skipped++;
-                        LOGGER.debug("crop_climates: {} in {} has no matching block ({}), skipping",
-                                key, fileEntry.getKey(), blockId);
-                        continue;
-                    }
-
-                    JsonObject entry = keyEntry.getValue().getAsJsonObject();
-                    double[] temp = readRange(entry, "temperature");
-                    double[] humidity = readRange(entry, "humidity");
-                    boolean tree = entry.has("tree") && entry.get("tree").getAsBoolean();
-                    boolean aquatic = entry.has("aquatic") && entry.get("aquatic").getAsBoolean();
-                    String hookName = entry.has("hook") ? entry.get("hook").getAsString() : "CropGrowEvent";
-                    ClimateBand.Hook hook = "randomTick".equals(hookName)
-                            ? ClimateBand.Hook.RANDOM_TICK
-                            : ClimateBand.Hook.CROP_GROW_EVENT;
-
-                    ClimateBand band = new ClimateBand(temp[0], temp[1], humidity[0], humidity[1], tree, aquatic, hook);
-                    blockBands.put(block.get(), band);
-                    plants++;
-
-                    if (hook == ClimateBand.Hook.RANDOM_TICK) {
-                        if (tree) {
-                            saplings.add(block.get());
-                            saplingCount++;
-                        } else {
-                            ownTick.add(block.get());
-                            ownTickCount++;
-                        }
-                    }
-
-                    if (entry.has("item")) {
-                        ResourceLocation itemId = ResourceLocation.parse(entry.get("item").getAsString());
-                        java.util.Optional<Item> item = BuiltInRegistries.ITEM.getOptional(itemId);
-                        if (item.isPresent()) {
-                            // Same item can be shared by several blocks (e.g. a seed for
-                            // several crop stages) - the shortest block id wins, matching
-                            // the KubeJS client loader's tie-break.
-                            String existing = itemToShortestBlockId.get(item.get());
-                            String candidate = blockId.toString();
-                            if (existing == null || candidate.length() < existing.length()) {
-                                itemToShortestBlockId.put(item.get(), candidate);
-                                itemBands.put(item.get(), band);
-                            }
-                        }
-                    }
-                } catch (RuntimeException ex) {
-                    LOGGER.warn("crop_climates: skipping malformed entry '{}' in {} - {}", key, fileEntry.getKey(), ex.toString());
+            Item item = spec.item().flatMap(BuiltInRegistries.ITEM::getOptional).orElseGet(block::asItem);
+            if (item != Items.AIR) {
+                // Same item can be shared by several blocks (e.g. a seed for
+                // several crop stages) - the shortest block id wins.
+                String candidate = BuiltInRegistries.BLOCK.getKey(block).toString();
+                String existing = itemToShortestBlockId.get(item);
+                if (existing == null || candidate.length() < existing.length()
+                        || (candidate.length() == existing.length() && candidate.compareTo(existing) < 0)) {
+                    itemToShortestBlockId.put(item, candidate);
+                    itemBands.put(item, band);
                 }
             }
         }
@@ -147,16 +234,44 @@ public final class ClimateBands extends SimpleJsonResourceReloadListener {
         SAPLINGS = Set.copyOf(saplings);
         OWN_TICK = Set.copyOf(ownTick);
         ITEM_BANDS = Map.copyOf(itemBands);
+        BLACKLISTED = Set.copyOf(blacklisted);
 
-        LOGGER.info("crop_climates: loaded {} plants ({} saplings, {} own-tick), {} skipped (no matching block)",
-                plants, saplingCount, ownTickCount, skipped);
+        LOGGER.info("crop_climates: loaded {} plants ({} saplings, {} own-tick), {} skipped (no matching block), {} blacklisted",
+                blockBands.size(), saplings.size(), ownTick.size(), skipped, excluded);
     }
 
-    private static double[] readRange(JsonObject entry, String key) {
-        JsonArray array = entry.getAsJsonArray(key);
-        if (array == null || array.size() != 2) {
-            throw new IllegalArgumentException("'" + key + "' must be a two-element array");
+    /** The config blacklist's blocks: ids, and the members of {@code #tag} entries. */
+    private static Set<Block> blacklistedBlocks() {
+        Set<Block> blocks = new HashSet<>();
+        for (String entry : CropClimatesConfig.blacklist()) {
+            boolean tag = entry.startsWith("#");
+            ResourceLocation id = ResourceLocation.tryParse(tag ? entry.substring(1) : entry);
+            if (id == null) {
+                continue;
+            }
+            if (tag) {
+                BuiltInRegistries.BLOCK.getTag(TagKey.create(Registries.BLOCK, id)).ifPresentOrElse(
+                        members -> members.forEach(holder -> blocks.add(holder.value())),
+                        () -> LOGGER.warn("crop_climates: blacklist tag #{} is empty or unknown", id));
+            } else {
+                BuiltInRegistries.BLOCK.getOptional(id).ifPresentOrElse(blocks::add,
+                        () -> LOGGER.warn("crop_climates: blacklist entry {} is not a block", id));
+            }
         }
-        return new double[]{array.get(0).getAsDouble(), array.get(1).getAsDouble()};
+        return blocks;
+    }
+
+    /**
+     * Staged crops and saplings wilt back by default. Plants whose {@code age}
+     * is only a growth counter (sugar cane, cactus, bamboo, vines) do not -
+     * losing a step there would mean nothing.
+     */
+    static boolean regressesByDefault(Block block, boolean tree) {
+        return tree
+                || block instanceof CropBlock
+                || block instanceof StemBlock
+                || block instanceof SweetBerryBushBlock
+                || block instanceof NetherWartBlock
+                || block instanceof CocoaBlock;
     }
 }

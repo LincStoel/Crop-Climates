@@ -1,0 +1,24 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.worldtraveler.cropclimates.stress.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "ClimateSamplerMixin",
+    "CropGrowHandlersMixin",
+    "GreenhouseParticlesMixin",
+    "GreenhouseRegistryAccessor",
+    "GreenhouseRegistryMixin",
+    "GreenhousesMixin",
+    "GrowthGovernorMixin",
+    "HygrometerEntityMixin",
+    "RegressionMixin",
+    "RoomScanMixin"
+  ],
+  "client": [
+    "client.ScreenMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

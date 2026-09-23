@@ -1,48 +1,72 @@
 package com.worldtraveler.cropclimates.climate;
 
-import com.google.gson.Gson;
 import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.mojang.logging.LogUtils;
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.DataResult;
+import com.mojang.serialization.JsonOps;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.FileToIdConverter;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.server.packs.resources.ResourceManager;
-import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
+import net.minecraft.server.packs.resources.SimplePreparableReloadListener;
 import net.minecraft.tags.TagKey;
 import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.world.level.biome.Biome;
 import org.slf4j.Logger;
 
-import java.util.HashMap;
+import java.io.Reader;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 /**
- * Humidity axis. Live read of each biome's own {@code downfall} - the KubeJS
- * system baked this into a 207-entry table only because a live read risked a
- * Rhino method rename; that risk does not exist in Java. See
- * {@code design_reference_kubejs_implementation.md} section 2 and the crop
- * climate Java port plan's "approved change" for this class.
+ * Humidity axis: each biome's own {@code downfall}, read live, with an
+ * override layer from {@code data/<any>/climate/*.json}:
  *
- * <p>An override layer from {@code data/crop_climates/climate/biome_moisture.json}
- * (folder {@code climate}, any number of contributing files) lets a datapack
- * pin specific biomes or tags to a fixed value - shipped with the End forced
- * to 0.0, matching the old table.
+ * <pre>{@code
+ * { "overrides": [
+ *   { "biomes": ["#minecraft:is_end"], "moisture": 0.0 },
+ *   { "biomes": ["minecraft:mushroom_fields", "#c:is_swamp"], "moisture": 0.9, "priority": 10 }
+ * ]}
+ * }</pre>
+ *
+ * Precedence between overlapping entries lives in {@link MoistureOverrides}.
+ * Every datapack's copy of a file is read, lowest pack first. Resolved values
+ * are cached per biome and dropped on reload and on tag updates.
  */
-public final class BiomeMoisture extends SimpleJsonResourceReloadListener {
+public final class BiomeMoisture extends SimplePreparableReloadListener<List<MoistureOverrides.Entry>> {
 
     private static final Logger LOGGER = LogUtils.getLogger();
-    private static final Gson GSON = new Gson();
+    private static final FileToIdConverter FILES = FileToIdConverter.json("climate");
 
-    private static volatile Map<ResourceLocation, Double> BIOME_OVERRIDES = Map.of();
-    private static volatile Map<TagKey<Biome>, Double> TAG_OVERRIDES = Map.of();
-    private static final Map<ResourceKey<Biome>, Double> CACHE = new IdentityHashMap<>();
-
-    public BiomeMoisture() {
-        super(GSON, "climate");
+    private record RawEntry(List<String> biomes, double moisture, int priority) {
+        static final Codec<RawEntry> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                Codec.STRING.listOf().fieldOf("biomes").forGetter(RawEntry::biomes),
+                Codec.DOUBLE.validate(v -> v < 0.0 || v > 1.0
+                        ? DataResult.error(() -> "moisture must lie within 0-1, got " + v)
+                        : DataResult.success(v)).fieldOf("moisture").forGetter(RawEntry::moisture),
+                Codec.INT.optionalFieldOf("priority", 0).forGetter(RawEntry::priority)
+        ).apply(instance, RawEntry::new));
     }
+
+    private static final Codec<List<RawEntry>> FILE_CODEC =
+            RawEntry.CODEC.listOf().fieldOf("overrides").codec();
+
+    private static volatile MoistureOverrides OVERRIDES = new MoistureOverrides(List.of());
+    private static final Map<ResourceKey<Biome>, Double> CACHE = new IdentityHashMap<>();
+    /** Biome id -> description of the tie, for {@code /cropclimates audit}. */
+    private static final Map<ResourceLocation, String> CONFLICTS = new TreeMap<>();
 
     /** Moisture (0-1) for the biome at this holder, honouring overrides. */
     public static double moistureOf(Holder<Biome> biomeHolder, double defaultBiomeMoisture) {
@@ -56,7 +80,7 @@ public final class BiomeMoisture extends SimpleJsonResourceReloadListener {
             }
         }
 
-        double value = resolve(biomeHolder, defaultBiomeMoisture);
+        double value = resolve(biomeHolder, key, defaultBiomeMoisture);
 
         if (key != null) {
             synchronized (CACHE) {
@@ -66,18 +90,25 @@ public final class BiomeMoisture extends SimpleJsonResourceReloadListener {
         return value;
     }
 
-    private static double resolve(Holder<Biome> biomeHolder, double defaultBiomeMoisture) {
-        ResourceKey<Biome> key = biomeHolder.unwrapKey().orElse(null);
-        if (key != null) {
-            Double byId = BIOME_OVERRIDES.get(key.location());
-            if (byId != null) {
-                return byId;
+    private static double resolve(Holder<Biome> biomeHolder, ResourceKey<Biome> key, double defaultBiomeMoisture) {
+        ResourceLocation id = key != null ? key.location() : null;
+        MoistureOverrides.Result result = OVERRIDES.resolve(id,
+                tag -> biomeHolder.is(TagKey.create(Registries.BIOME, tag)));
+        if (result != null) {
+            if (result.conflicted() && id != null) {
+                String losers = result.conflictsWith().stream().map(MoistureOverrides.Entry::source)
+                        .collect(Collectors.joining(", "));
+                String description = "uses " + result.moisture() + " from " + result.winner().source()
+                        + ", tied with " + losers;
+                boolean fresh;
+                synchronized (CONFLICTS) {
+                    fresh = CONFLICTS.put(id, description) == null;
+                }
+                if (fresh) {
+                    LOGGER.warn("crop_climates: biome {} matches equal-priority moisture overrides - {}", id, description);
+                }
             }
-        }
-        for (Map.Entry<TagKey<Biome>, Double> entry : TAG_OVERRIDES.entrySet()) {
-            if (biomeHolder.is(entry.getKey())) {
-                return entry.getValue();
-            }
+            return result.moisture();
         }
         if (!biomeHolder.isBound()) {
             return defaultBiomeMoisture;
@@ -86,61 +117,64 @@ public final class BiomeMoisture extends SimpleJsonResourceReloadListener {
         return Math.max(0.0, Math.min(1.0, downfall));
     }
 
-    @Override
-    protected void apply(Map<ResourceLocation, JsonElement> resources, ResourceManager resourceManager, ProfilerFiller profiler) {
-        Map<ResourceLocation, Double> biomeOverrides = new HashMap<>();
-        Map<TagKey<Biome>, Double> tagOverrides = new HashMap<>();
-
-        for (Map.Entry<ResourceLocation, JsonElement> fileEntry : resources.entrySet()) {
-            if (!fileEntry.getValue().isJsonObject()) {
-                LOGGER.error("crop_climates: skipping malformed climate override file {} - not a JSON object", fileEntry.getKey());
-                continue;
-            }
-            JsonObject file = fileEntry.getValue().getAsJsonObject();
-
-            readSection(file, "biomes", fileEntry.getKey(), (id, value) -> {
-                try {
-                    biomeOverrides.put(ResourceLocation.parse(id), value);
-                } catch (RuntimeException ex) {
-                    LOGGER.warn("crop_climates: skipping unresolvable biome id '{}' in {} - {}", id, fileEntry.getKey(), ex.toString());
-                }
-            });
-
-            readSection(file, "tags", fileEntry.getKey(), (id, value) -> {
-                try {
-                    String path = id.startsWith("#") ? id.substring(1) : id;
-                    tagOverrides.put(TagKey.create(Registries.BIOME, ResourceLocation.parse(path)), value);
-                } catch (RuntimeException ex) {
-                    LOGGER.warn("crop_climates: skipping unresolvable biome tag '{}' in {} - {}", id, fileEntry.getKey(), ex.toString());
-                }
-            });
+    /** Equal-priority ties found so far this reload, biome id -> description. */
+    public static Map<ResourceLocation, String> conflicts() {
+        synchronized (CONFLICTS) {
+            return Map.copyOf(CONFLICTS);
         }
+    }
 
-        BIOME_OVERRIDES = Map.copyOf(biomeOverrides);
-        TAG_OVERRIDES = Map.copyOf(tagOverrides);
+    /** Tag membership may have changed - forget every resolved value. */
+    public static void invalidate() {
         synchronized (CACHE) {
             CACHE.clear();
         }
-
-        LOGGER.info("crop_climates: loaded {} biome moisture overrides, {} tag overrides",
-                biomeOverrides.size(), tagOverrides.size());
-    }
-
-    private interface EntryConsumer {
-        void accept(String id, double value);
-    }
-
-    private static void readSection(JsonObject file, String section, ResourceLocation source, EntryConsumer consumer) {
-        JsonObject obj = file.getAsJsonObject(section);
-        if (obj == null) {
-            return;
+        synchronized (CONFLICTS) {
+            CONFLICTS.clear();
         }
-        for (Map.Entry<String, JsonElement> e : obj.entrySet()) {
-            try {
-                consumer.accept(e.getKey(), e.getValue().getAsDouble());
-            } catch (RuntimeException ex) {
-                LOGGER.warn("crop_climates: skipping malformed entry '{}' in {} - {}", e.getKey(), source, ex.toString());
+    }
+
+    @Override
+    protected List<MoistureOverrides.Entry> prepare(ResourceManager resourceManager, ProfilerFiller profiler) {
+        List<MoistureOverrides.Entry> entries = new ArrayList<>();
+        int order = 0;
+        for (Map.Entry<ResourceLocation, List<Resource>> stack : FILES.listMatchingResourceStacks(resourceManager).entrySet()) {
+            ResourceLocation fileId = FILES.fileToId(stack.getKey());
+            for (Resource resource : stack.getValue()) {
+                String source = fileId + " (" + resource.sourcePackId() + ")";
+                JsonElement json;
+                try (Reader reader = resource.openAsReader()) {
+                    json = JsonParser.parseReader(reader);
+                } catch (Exception ex) {
+                    LOGGER.error("crop_climates: could not read climate file {} - {}", source, ex.toString());
+                    continue;
+                }
+                List<RawEntry> raw = FILE_CODEC.parse(JsonOps.INSTANCE, json)
+                        .resultOrPartial(error -> LOGGER.error("crop_climates: skipping climate file {} - {}", source, error))
+                        .orElse(List.of());
+                for (RawEntry entry : raw) {
+                    Set<ResourceLocation> biomes = new HashSet<>();
+                    Set<ResourceLocation> tags = new HashSet<>();
+                    for (String name : entry.biomes()) {
+                        boolean tag = name.startsWith("#");
+                        ResourceLocation id = ResourceLocation.tryParse(tag ? name.substring(1) : name);
+                        if (id == null) {
+                            LOGGER.warn("crop_climates: skipping invalid biome '{}' in {}", name, source);
+                            continue;
+                        }
+                        (tag ? tags : biomes).add(id);
+                    }
+                    entries.add(new MoistureOverrides.Entry(biomes, tags, entry.moisture(), entry.priority(), order++, source));
+                }
             }
         }
+        return entries;
+    }
+
+    @Override
+    protected void apply(List<MoistureOverrides.Entry> entries, ResourceManager resourceManager, ProfilerFiller profiler) {
+        OVERRIDES = new MoistureOverrides(entries);
+        invalidate();
+        LOGGER.info("crop_climates: loaded {} biome moisture overrides", entries.size());
     }
 }
