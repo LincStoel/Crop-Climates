@@ -1,5 +1,7 @@
 package com.worldtraveler.cropclimates.mixin;
 
+import com.llamalad7.mixinextras.sugar.Share;
+import com.llamalad7.mixinextras.sugar.ref.LocalBooleanRef;
 import com.worldtraveler.cropclimates.climate.ClimateBands;
 import com.worldtraveler.cropclimates.growth.CropGrowHandlers;
 import com.worldtraveler.cropclimates.growth.GrowthGovernor;
@@ -20,7 +22,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * {@code randomTick} has no NeoForge event - {@code SaplingBlock} never fires
  * {@code CropGrowEvent} and {@code BlockGrowFeatureEvent} only covers nether
  * fungi/huge mushrooms - so this governs the sapling/own-tick plants directly
- * at the head of {@code randomTick}.
+ * around {@code randomTick}: a slowed tick is cancelled at the head, and a
+ * sped-up one gets its extra tick at the tail.
+ *
+ * <p>The extra tick has to come after the original one. The original tick
+ * runs with the state captured before it started; had the extra tick grown
+ * the plant first, the original would write that same stage again (a crop,
+ * cane or pitcher sets {@code age + 1} from its stale state) and the speed-up
+ * would be lost. {@link CropGrowHandlers#extraTick} re-reads the block.
  *
  * <p>Only blocks in {@link ClimateBands#isRandomTickGoverned} pay anything -
  * one hash-set probe - everything else falls straight through to vanilla.
@@ -32,7 +41,8 @@ public abstract class BlockStateBaseMixin {
     public abstract Block getBlock();
 
     @Inject(method = "randomTick", at = @At("HEAD"), cancellable = true)
-    private void cropClimates$randomTick(ServerLevel level, BlockPos pos, RandomSource random, CallbackInfo ci) {
+    private void cropClimates$randomTick(ServerLevel level, BlockPos pos, RandomSource random, CallbackInfo ci,
+                                         @Share("cropClimates$extra") LocalBooleanRef extra) {
         if (CropGrowHandlers.isForcing() || CropGrowHandlers.isDisabled()) {
             return;
         }
@@ -57,10 +67,18 @@ public abstract class BlockStateBaseMixin {
                 return;
             }
             if (total > 1.0 && random.nextDouble() < total - 1.0) {
-                CropGrowHandlers.extraTick(level, pos);
+                extra.set(true);
             }
         } catch (RuntimeException ex) {
             CropGrowHandlers.fail("BlockEvents.randomTick", ex);
+        }
+    }
+
+    @Inject(method = "randomTick", at = @At("TAIL"))
+    private void cropClimates$extraTick(ServerLevel level, BlockPos pos, RandomSource random, CallbackInfo ci,
+                                        @Share("cropClimates$extra") LocalBooleanRef extra) {
+        if (extra.get()) {
+            CropGrowHandlers.extraTick(level, pos);
         }
     }
 }
