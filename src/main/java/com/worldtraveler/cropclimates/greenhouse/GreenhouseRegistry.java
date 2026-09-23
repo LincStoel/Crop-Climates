@@ -3,7 +3,9 @@ package com.worldtraveler.cropclimates.greenhouse;
 import com.mojang.logging.LogUtils;
 import com.worldtraveler.cropclimates.CropClimatesConfig;
 import com.worldtraveler.cropclimates.CropClimatesTags;
+import com.worldtraveler.cropclimates.climate.TemperatureUnits;
 import com.worldtraveler.cropclimates.report.ClimateReport;
+import com.worldtraveler.cropclimates.report.Reports;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
@@ -74,7 +76,13 @@ public final class GreenhouseRegistry extends SavedData {
     private static final int MAX_BACKOFF = 4;
     private static final int PERIODIC_CHECK = 20;
 
+    /** A freshly hung hygrometer that just became part of a greenhouse, and the player who hung it. */
+    private record Announcement(UUID hygrometer, UUID player) {
+    }
+
     private final Map<UUID, Probe> probes = new LinkedHashMap<>();
+    /** Greenhouse reports owed to players who just hung a hygrometer; sent by {@link #announce}. */
+    private final List<Announcement> announcements = new ArrayList<>();
     private final Map<UUID, Room> rooms = new HashMap<>();
     private final Long2ObjectOpenHashMap<Room> cellIndex = new Long2ObjectOpenHashMap<>();
     private final Long2ObjectOpenHashMap<List<Probe>> sectionIndex = new Long2ObjectOpenHashMap<>();
@@ -207,18 +215,32 @@ public final class GreenhouseRegistry extends SavedData {
     }
 
     /**
-     * Re-reads a hygrometer's room now: placing one and shift-right-clicking
-     * one ask for this, and it is the only thing that wakes a hygrometer
-     * parked as too large. {@code player}, if given, is told when the scan
-     * finds the space too large for a greenhouse.
+     * Re-reads a hygrometer's room now: shift-right-clicking one asks for
+     * this, and it is the only thing that wakes a hygrometer parked as too
+     * large. {@code player}, if given, is told when the scan finds the space
+     * too large for a greenhouse.
      */
     public void requestScan(UUID id, long now, @Nullable UUID player) {
+        request(id, now, player, false);
+    }
+
+    /**
+     * A player just hung this hygrometer. Its first scan is theirs to hear
+     * about: the hygrometer report when it seals or joins a greenhouse, the
+     * too-large message when it cannot.
+     */
+    public void placedBy(UUID id, UUID player, long now) {
+        request(id, now, player, true);
+    }
+
+    private void request(UUID id, long now, @Nullable UUID player, boolean placed) {
         Probe probe = probes.get(id);
         if (probe != null) {
             Probe target = scanTarget(probe);
             target.misses = 0;
             if (player != null) {
                 target.notify = player;
+                target.placed = placed;
             }
             schedule(target, now);
         }
@@ -421,6 +443,7 @@ public final class GreenhouseRegistry extends SavedData {
                 if (existing != null && probes.containsKey(existing.anchor)) {
                     join(probe, existing);
                     setDirty();
+                    announce(level);
                     activeScan = null;
                     return true;
                 }
@@ -463,7 +486,9 @@ public final class GreenhouseRegistry extends SavedData {
         }
 
         UUID notify = probe.notify;
+        boolean placed = probe.placed;
         probe.notify = null;
+        probe.placed = false;
         if (result == RoomScan.Status.TOO_LARGE) {
             // A cave or a Nether cavern never seals, and every retry would flood a
             // whole max-size room's worth of cells - so stop until a player asks.
@@ -486,6 +511,10 @@ public final class GreenhouseRegistry extends SavedData {
         boolean changed;
         if (result == RoomScan.Status.ENCLOSED) {
             changed = installRoom(probe, scan, now);
+            if (notify != null && placed) {
+                announcements.add(new Announcement(probe.id, notify));
+            }
+            announce(level);
             probe.misses = 0;
             probe.dueTick = now + stagger(probe, CropClimatesConfig.GREENHOUSE_RESCAN_INTERVAL.get());
         } else {
@@ -526,6 +555,19 @@ public final class GreenhouseRegistry extends SavedData {
             target.sendSystemMessage(ClimateReport.key("hygrometer.too_large_message",
                     ClimateReport.value(CropClimatesConfig.greenhouseMaxVolume())).withStyle(ChatFormatting.YELLOW));
         }
+    }
+
+    /** Sends the hygrometer report to each player whose freshly hung hygrometer just became part of a greenhouse. */
+    private void announce(ServerLevel level) {
+        for (Announcement a : announcements) {
+            Probe probe = probes.get(a.hygrometer());
+            ServerPlayer player = level.getServer().getPlayerList().getPlayer(a.player());
+            if (probe != null && probe.room != null && player != null) {
+                Reports.hygrometer(level, probe.pos, GreenhouseStatus.GREENHOUSE, probe.room, TemperatureUnits.forPlayer(player))
+                        .send(line -> player.displayClientMessage(line, false));
+            }
+        }
+        announcements.clear();
     }
 
     /** Spreads routine rescans out so rooms placed together do not rescan together. */
@@ -637,7 +679,11 @@ public final class GreenhouseRegistry extends SavedData {
         }
         probe.room = room;
         probe.status = GreenhouseStatus.GREENHOUSE;
+        if (probe.notify != null && probe.placed) {
+            announcements.add(new Announcement(probe.id, probe.notify));
+        }
         probe.notify = null;
+        probe.placed = false;
         room.members.add(probe.id);
         if (!probe.id.equals(room.anchor)) {
             probe.dueTick = Long.MAX_VALUE; // the anchor rescans for everyone

@@ -46,8 +46,9 @@ public class HygrometerItem extends Item {
             level.gameEvent(player, GameEvent.ENTITY_PLACE, hygrometer.position());
             level.addFreshEntity(hygrometer);
             if (player != null) {
-                // Tell the placer if its first scan finds the space too large for a greenhouse.
-                Greenhouses.get(serverLevel).requestScan(hygrometer.getUUID(), serverLevel.getGameTime(), player.getUUID());
+                // The placer hears how its first scan went: the report when it makes (or joins)
+                // a greenhouse, a message when the space is too large for one.
+                Greenhouses.get(serverLevel).placedBy(hygrometer.getUUID(), player.getUUID(), serverLevel.getGameTime());
             }
         }
         stack.shrink(1);

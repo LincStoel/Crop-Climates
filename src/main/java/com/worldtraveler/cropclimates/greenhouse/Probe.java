@@ -38,6 +38,8 @@ final class Probe {
      */
     @Nullable
     UUID notify;
+    /** Whether {@link #notify} just placed it: then a greenhouse result gets them the report too. */
+    boolean placed;
 
     Probe(UUID id, BlockPos pos) {
         this.id = id;
