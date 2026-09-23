@@ -1,6 +1,7 @@
 package com.worldtraveler.cropclimates.greenhouse;
 
 import com.momosoftworks.coldsweat.api.registry.SpreadRuleRegistry;
+import com.momosoftworks.coldsweat.api.spread_rule.DefaultSpreadRule;
 import com.momosoftworks.coldsweat.api.spread_rule.SpreadContext;
 import com.momosoftworks.coldsweat.api.spread_rule.SpreadRule;
 import com.momosoftworks.coldsweat.config.ConfigSettings;
@@ -19,6 +20,9 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.FluidState;
 import org.slf4j.Logger;
 
+import java.util.IdentityHashMap;
+import java.util.Map;
+
 /**
  * World-backed {@link RoomScan.Steps}/{@link RoomScan.Cells} for one scan.
  * The only place greenhouse code calls Cold Sweat: its hearth spread rules
@@ -36,6 +40,8 @@ final class WorldCells implements RoomScan.Steps, RoomScan.Cells {
     private final int skyScan;
     /** Column -> (y << 1 | result) of the last sky test in that column this scan. */
     private final Long2LongOpenHashMap skyCache = new Long2LongOpenHashMap();
+    /** Default-rule spread verdicts this scan, per source state: 0 unknown, 1 no, 2 yes, by inDir * 6 + outDir. */
+    private final Map<BlockState, byte[]> stepMemo = new IdentityHashMap<>();
 
     WorldCells(ServerLevel level) {
         this.level = level;
@@ -133,8 +139,24 @@ final class WorldCells implements RoomScan.Steps, RoomScan.Cells {
     @Override
     public boolean canStep(BlockPos from, Direction inDir, BlockPos to, Direction outDir) {
         BlockState fromState = level.getBlockState(from);
-        BlockState toState = level.getBlockState(to);
         SpreadRule rule = SpreadRuleRegistry.get(fromState);
-        return rule.canSpreadTo(new SpreadContext(level, from, fromState, to, toState, inDir, outDir));
+        // The default rule's verdict depends on the source's collision shape,
+        // the two directions and Cold Sweat's config lists - so for a block
+        // whose shape never varies it is the same everywhere in a scan, which
+        // otherwise asks it up to five times per cell.
+        byte[] memo = null;
+        int slot = inDir.ordinal() * 6 + outDir.ordinal();
+        if (rule.getClass() == DefaultSpreadRule.class && !fromState.getBlock().hasDynamicShape()) {
+            memo = stepMemo.computeIfAbsent(fromState, k -> new byte[36]);
+            if (memo[slot] != 0) {
+                return memo[slot] == 2;
+            }
+        }
+        BlockState toState = level.getBlockState(to);
+        boolean result = rule.canSpreadTo(new SpreadContext(level, from, fromState, to, toState, inDir, outDir));
+        if (memo != null) {
+            memo[slot] = (byte) (result ? 2 : 1);
+        }
+        return result;
     }
 }
