@@ -1,5 +1,6 @@
 package com.worldtraveler.cropclimates;
 
+import com.mojang.logging.LogUtils;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 /**
@@ -10,6 +11,20 @@ import net.neoforged.neoforge.common.ModConfigSpec;
 public final class CropClimatesConfig {
 
     public enum Units { F, C }
+
+    /**
+     * No setting makes a greenhouse bigger than this many interior cells.
+     * Finishing a rescan updates the room's cells within a single tick; on the
+     * stress server that cost 3-7 ms per 140,000 cells, so a room this size
+     * costs roughly 6-13 ms in that tick. Scans themselves are spread over
+     * ticks, but every other greenhouse waits behind a big room's rescan.
+     */
+    public static final int GREENHOUSE_VOLUME_CEILING = 262_144;
+
+    /** Tallest greenhouse setting: one short of the overworld's 384-block height. */
+    public static final int GREENHOUSE_HEIGHT_LIMIT = 383;
+
+    private static volatile boolean warnedCeiling;
 
     public static final ModConfigSpec SPEC;
 
@@ -134,12 +149,14 @@ public final class CropClimatesConfig {
                 .define("greenhouseEnabled", true);
         GREENHOUSE_MAX_RADIUS = builder
                 .comment("Together with greenhouseMaxHeight, sets the largest greenhouse: a room may hold at most " +
-                        "(2 * radius + 1)^2 * height interior cells (air, water, crops - not walls). Bigger rooms read as too large. " +
+                        "(2 * radius + 1)^2 * height interior cells (air, water, crops - not walls), and never more than " +
+                        GREENHOUSE_VOLUME_CEILING + " whatever these are set to. Bigger rooms read as too large. " +
                         "Only the cell count is capped; the room's shape is free.")
                 .defineInRange("greenhouseMaxRadius", 32, 1, 1024);
         GREENHOUSE_MAX_HEIGHT = builder
-                .comment("See greenhouseMaxRadius. Large spruce trees grow to a max of 32 blocks tall for reference.")
-                .defineInRange("greenhouseMaxHeight", 34, 1, 4096);
+                .comment("See greenhouseMaxRadius. Large spruce trees grow to a max of 32 blocks tall for reference. " +
+                        "At most " + GREENHOUSE_HEIGHT_LIMIT + ", one short of the world's height.")
+                .defineInRange("greenhouseMaxHeight", 34, 1, GREENHOUSE_HEIGHT_LIMIT);
         GREENHOUSE_MIN_VOLUME = builder
                 .comment("Smallest sealed room, in interior cells, that counts as a greenhouse.")
                 .defineInRange("greenhouseMinVolume", 12, 1, Integer.MAX_VALUE);
@@ -182,10 +199,19 @@ public final class CropClimatesConfig {
         SPEC = builder.build();
     }
 
-    /** Largest greenhouse in interior cells: {@code (2r + 1)^2 * h} from the radius and height settings. */
+    /**
+     * Largest greenhouse in interior cells: {@code (2r + 1)^2 * h} from the
+     * radius and height settings, but never over {@link #GREENHOUSE_VOLUME_CEILING}.
+     */
     public static int greenhouseMaxVolume() {
         long side = 2L * GREENHOUSE_MAX_RADIUS.get() + 1;
-        return (int) Math.min(Integer.MAX_VALUE, side * side * GREENHOUSE_MAX_HEIGHT.get());
+        long configured = side * side * GREENHOUSE_MAX_HEIGHT.get();
+        if (configured > GREENHOUSE_VOLUME_CEILING && !warnedCeiling) {
+            warnedCeiling = true;
+            LogUtils.getLogger().warn("crop_climates: greenhouseMaxRadius and greenhouseMaxHeight allow {} cells; "
+                    + "greenhouses are capped at {}", configured, GREENHOUSE_VOLUME_CEILING);
+        }
+        return (int) Math.min(GREENHOUSE_VOLUME_CEILING, configured);
     }
 
     private CropClimatesConfig() {
