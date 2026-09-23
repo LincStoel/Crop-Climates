@@ -115,10 +115,13 @@ public final class CropClimatesConfig {
                 .comment("Ticks a cached temperature reading stays valid. Also what lets day/night reach crops.")
                 .defineInRange("tempCacheTtl", 200, 1, Integer.MAX_VALUE);
         TEMP_CACHE_CAP = builder
-                .comment("Cached temperature entries allowed before the whole cache is dropped.")
-                .defineInRange("tempCacheCap", 4000, 1, Integer.MAX_VALUE);
+                .comment("Temperature cells (4x8x4 blocks each) kept cached. At the cap, cells unused for a while are dropped first, " +
+                        "then the least recently used half. Keep it above the number of cells with growing plants: an uncached " +
+                        "cell over the read budget goes unscored. Roughly 100 bytes each.")
+                .defineInRange("tempCacheCap", 65536, 1, Integer.MAX_VALUE);
         TEMP_READS_PER_TICK = builder
-                .comment("Fresh Cold Sweat temperature reads allowed per game tick; over budget uses a stale reading.")
+                .comment("Fresh Cold Sweat temperature reads allowed per game tick; over budget uses a stale reading, " +
+                        "and a cell with none yet is left unscored for that tick.")
                 .defineInRange("tempReadsPerTick", 12, 1, Integer.MAX_VALUE);
         ERROR_LIMIT = builder
                 .comment("Logged failures before climate growth disables itself for the session and reverts to vanilla.")
