@@ -527,6 +527,8 @@ S4_X = 9000
 def latency(s, label, index=0, timeout=900):
     s.c(f"ccstress latency {label} {index}", quiet=True)
     ok, t = wait_for(s, lambda: s.c("ccstress latency result", quiet=True).strip() not in ("running", "none"), timeout, 0.5)
+    if not ok:
+        return {"result": f"no answer in {timeout}s"}
     return json.loads(s.c("ccstress latency result", quiet=True))
 
 
@@ -605,23 +607,48 @@ def s5(s):
     release(s, S2_X - 8, -8, S2_X + 80, 80)
 
 
+# ------------------------------------------- S6 registry load after restart
+
+def s6load(s):
+    """Run first thing after a server restart: what loading the saved greenhouses cost."""
+    st = s.json("ccstress stats")
+    c = st.get("counters", {})
+    world = st.get("minecraft:overworld", {})
+    row = {"loads": c.get("loads"), "loadMs": c.get("loadMs"), "indexedCells": world.get("indexedCells"),
+           "rooms": world.get("rooms"), "hygrometers": world.get("hygrometers"), "datBytes": dat_size()}
+    (out_dir("S6-load") / "summary.json").write_text(json.dumps(row, indent=1))
+    log(f"S6 registry load after restart: {row}")
+
+
 # ---------------------------------------------- S7 scanner budget trade-off
 
 def s7(s):
+    """Scanner budget: tick cost while the max room (S2) is rescanned back to back, and how long a
+    small greenhouse beside it waits to report a leak meanwhile. (Opening S2's own roof is no probe:
+    the churn's glass or a grown tree can plug the hole.)"""
     s.rules(3)
     force(s, S2_X - 8, -8, S2_X + 80, 80)
-    wait_quiet(s)
+    if s.c("ccstress status S7ref", quiet=True).strip() == "[]":
+        s.c(f"ccstress build greenhouse S7ref {S2_X + 68} {Y} 68 9 9 5 wheat 0")
+    wait_quiet(s, timeout=120)
+    idle = latency(s, "S7ref")
+    log(f"S7 reference latency, scanner idle: {idle}")
     rows = []
     for budget in (512, 2048, 8192):
         s.config("greenhouseCellsPerTick", budget)
         s.c("ccstress churn room walls S2 1")
         time.sleep(3)
         stats = s.window(f"S7-budget{budget}", 60)
+        busy = latency(s, "S7ref")
         s.c("ccstress churn stop")
-        wait_quiet(s)
-        lat = latency(s, "S2")
-        rows.append({"budget": budget, "latency": lat, "meanMs": stats.get("meanMs"), "p99Ms": stats.get("p99Ms"),
-                     "maxMs": stats.get("maxMs")})
+        s.c(f"fill {S2_X + 1} {Y + 33} 1 {S2_X + 65} {Y + 33} 65 air replace glass", quiet=True)
+        wait_quiet(s, timeout=120)
+        c = stats.get("counters", {})
+        finished = sum((c.get("scansFinished") or {}).values())
+        rows.append({"budget": budget, "meanMs": stats.get("meanMs"), "p99Ms": stats.get("p99Ms"),
+                     "maxMs": stats.get("maxMs"), "ticksScanning": c.get("ticksScanning"),
+                     "cellsScanned": c.get("cellsScanned"), "scansFinished": finished,
+                     "refLatencyBusy": busy, "refLatencyIdle": idle})
         log(f"S7 budget {budget}: {rows[-1]}")
     s.config("greenhouseCellsPerTick", 2048)
     (out_dir("S7-budget") / "summary.json").write_text(json.dumps(rows, indent=1))
@@ -630,7 +657,7 @@ def s7(s):
 
 SERVER_WORLD = RESULTS.parent / "server" / "world"
 
-SCENARIOS = {"s0": s0, "f1": f1, "f2": f2, "f3": f3, "s1": s1, "s2": s2, "s3": s3, "s4": s4, "s5": s5, "s7": s7}
+SCENARIOS = {"s0": s0, "f1": f1, "f2": f2, "f3": f3, "s1": s1, "s2": s2, "s3": s3, "s4": s4, "s5": s5, "s6load": s6load, "s7": s7}
 
 if __name__ == "__main__":
     session = Session()

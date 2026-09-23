@@ -58,7 +58,7 @@ public final class ClientProbe {
                     message -> append("stress-shots.txt", payload.arg() + ": " + message.getString() + System.lineSeparator()));
             case "tooltip" -> {
                 Item item = BuiltInRegistries.ITEM.get(ResourceLocation.parse(payload.arg()));
-                StringBuilder out = new StringBuilder("== " + payload.arg() + System.lineSeparator());
+                StringBuilder out = new StringBuilder("== " + payload.arg() + " @" + marker + System.lineSeparator());
                 for (boolean alt : new boolean[]{false, true}) {
                     forceAlt = alt;
                     try {

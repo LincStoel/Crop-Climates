@@ -70,7 +70,8 @@ neoForge {
             gameDirectory = layout.projectDirectory.dir("run-stress/client")
             sourceSet = stress
             loadedMods = setOf(mods["crop_climates"], mods["crop_climates_stress"])
-            programArguments.addAll("--quickPlayMultiplayer", "localhost:25565", "--username", "StressBot")
+            programArguments.addAll("--quickPlayMultiplayer", "127.0.0.1:25565", "--username", "StressBot",
+                    "--width", "1280", "--height", "720")
         }
     }
 
