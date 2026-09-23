@@ -26,7 +26,7 @@
   "tree": true
  },
  "bamboo": {
-  "hook": "CropGrowEvent",
+  "hook": "randomTick",
   "humidity": [
    0.7,
    1
@@ -130,7 +130,7 @@
   "tree": true
  },
  "chorus_flower": {
-  "hook": "CropGrowEvent",
+  "hook": "randomTick",
   "humidity": [
    0,
    0.3
@@ -261,7 +261,7 @@
   "tree": true
  },
  "pitcher_crop": {
-  "hook": "CropGrowEvent",
+  "hook": "randomTick",
   "humidity": [
    0.45,
    0.95
@@ -313,7 +313,7 @@
   "tree": true
  },
  "sugar_cane": {
-  "hook": "CropGrowEvent",
+  "hook": "randomTick",
   "humidity": [
    0.35,
    0.65
