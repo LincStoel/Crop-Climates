@@ -117,12 +117,14 @@ public final class CropClimates {
 
     /**
      * Singleplayer keeps statics alive across worlds, so every cache keyed by
-     * game time or world must be dropped when a server stops.
+     * game time or world must be dropped when a server stops - and the
+     * switches a failure flips, whose logs promise a restart clears them.
      */
     private static void clearCaches() {
         ClimateSampler.clear();
         Greenhouses.clear();
         Regression.clear();
+        CropGrowHandlers.reset();
     }
 
     /**

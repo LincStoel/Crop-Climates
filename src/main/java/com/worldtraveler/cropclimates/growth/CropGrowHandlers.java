@@ -121,6 +121,13 @@ public final class CropGrowHandlers {
         }
     }
 
+    /** Called when a server stops, so the next one (another singleplayer world) starts governed again. */
+    public static void reset() {
+        disabled = false;
+        speedupOk = true;
+        errors.set(0);
+    }
+
     public static void fail(String where, RuntimeException ex) {
         int count = errors.incrementAndGet();
         int limit = CropClimatesConfig.ERROR_LIMIT.get();

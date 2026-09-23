@@ -127,6 +127,7 @@ public final class ClimateSampler {
         CACHE.clear();
         budgetTick = Long.MIN_VALUE;
         budgetSpent.set(0);
+        coldSweatAvailable = true; // a failed read disables scoring until the server stops
     }
 
     public static int cacheSize() {

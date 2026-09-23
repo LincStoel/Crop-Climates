@@ -85,6 +85,11 @@ final class WorldCells implements RoomScan.Steps, RoomScan.Cells {
         }
     }
 
+    /** Called when a server stops: the next server (another singleplayer world) starts with greenhouses on. */
+    static void reset() {
+        available = true;
+    }
+
     @Override
     public boolean isLoaded(BlockPos pos) {
         return level.isLoaded(pos);

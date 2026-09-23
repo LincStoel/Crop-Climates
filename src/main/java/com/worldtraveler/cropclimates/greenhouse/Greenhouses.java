@@ -78,5 +78,6 @@ public final class Greenhouses {
 
     public static void clear() {
         ACTIVE.clear();
+        WorldCells.reset();
     }
 }
