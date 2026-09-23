@@ -24,6 +24,11 @@ final class Probe {
     int[] footprint;
     /** Game time this hygrometer should next be scanned. */
     long dueTick;
+    /**
+     * Consecutive scans that came back too large or unloaded with nothing
+     * changed in between; each doubles the wait before the next retry.
+     */
+    int misses;
 
     Probe(UUID id, BlockPos pos) {
         this.id = id;

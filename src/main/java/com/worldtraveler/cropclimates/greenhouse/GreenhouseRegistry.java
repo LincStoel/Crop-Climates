@@ -58,8 +58,13 @@ public final class GreenhouseRegistry extends SavedData {
     static final SavedData.Factory<GreenhouseRegistry> FACTORY =
             new SavedData.Factory<>(GreenhouseRegistry::new, GreenhouseRegistry::load);
 
-    /** Unloaded chunks: retry after this many ticks. */
+    /** Unloaded chunks: retry after this many ticks, doubling while it keeps happening. */
     private static final int UNLOADED_RETRY = 200;
+    /**
+     * Most doublings of a retry while a scan keeps coming back too large or
+     * unloaded: 600 -> 9600 ticks and 200 -> 6400 ticks with the defaults.
+     */
+    private static final int MAX_BACKOFF = 4;
     private static final int PERIODIC_CHECK = 20;
 
     private final Map<UUID, Probe> probes = new LinkedHashMap<>();
@@ -151,11 +156,13 @@ public final class GreenhouseRegistry extends SavedData {
         setDirty();
     }
 
-    /** Re-reads a hygrometer's room now - the Soil Tester and hygrometer reports use this. */
+    /** Re-reads a hygrometer's room now - a right-click on the hygrometer asks for this. */
     public void requestScan(UUID id, long now) {
         Probe probe = probes.get(id);
         if (probe != null) {
-            schedule(scanTarget(probe), now);
+            Probe target = scanTarget(probe);
+            target.misses = 0;
+            schedule(target, now);
         }
     }
 
@@ -183,8 +190,11 @@ public final class GreenhouseRegistry extends SavedData {
         if (watchers != null) {
             long due = now + CropClimatesConfig.GREENHOUSE_CHANGE_DELAY.get();
             for (Probe probe : watchers) {
-                if (probe.footprint != null && contains(probe.footprint, pos) && probe.dueTick > due) {
-                    probe.dueTick = due;
+                if (probe.footprint != null && contains(probe.footprint, pos)) {
+                    probe.misses = 0;
+                    if (probe.dueTick > due) {
+                        probe.dueTick = due;
+                    }
                 }
             }
         }
@@ -348,8 +358,11 @@ public final class GreenhouseRegistry extends SavedData {
         RoomScan.Status result = scan.status();
 
         if (result == RoomScan.Status.UNLOADED) {
-            // Keep whatever room we had; try again once more is loaded.
-            probe.dueTick = now + UNLOADED_RETRY;
+            // Keep whatever room we had; try again once more is loaded. A room
+            // left half in unloaded chunks would otherwise re-flood its loaded
+            // half every 200 ticks for as long as it stays that way.
+            probe.dueTick = now + ((long) UNLOADED_RETRY << Math.min(probe.misses, MAX_BACKOFF + 1));
+            probe.misses++;
             if (probe.room == null) {
                 probe.status = GreenhouseStatus.SCANNING;
             } else {
@@ -365,6 +378,7 @@ public final class GreenhouseRegistry extends SavedData {
         boolean changed;
         if (result == RoomScan.Status.ENCLOSED) {
             changed = installRoom(probe, scan, now);
+            probe.misses = 0;
             probe.dueTick = now + stagger(probe, CropClimatesConfig.GREENHOUSE_RESCAN_INTERVAL.get());
         } else {
             changed = probe.room != null;
@@ -378,7 +392,18 @@ public final class GreenhouseRegistry extends SavedData {
                 case TOO_SMALL -> GreenhouseStatus.TOO_SMALL;
                 default -> GreenhouseStatus.OUTDOOR;
             };
-            probe.dueTick = now + stagger(probe, CropClimatesConfig.GREENHOUSE_UNSEALED_RETRY_INTERVAL.get());
+            int retry = CropClimatesConfig.GREENHOUSE_UNSEALED_RETRY_INTERVAL.get();
+            if (result == RoomScan.Status.TOO_LARGE) {
+                // A cave or a Nether cavern never seals: each retry floods a whole
+                // max-size room's worth of cells, so back off while nothing changes.
+                // Outdoor and too-small retries stay prompt - they are cheap, and a
+                // player closing a room up expects it to become a greenhouse.
+                retry <<= Math.min(probe.misses, MAX_BACKOFF);
+                probe.misses++;
+            } else {
+                probe.misses = 0;
+            }
+            probe.dueTick = now + stagger(probe, retry);
         }
         if (activeInvalidated) {
             probe.dueTick = Math.min(probe.dueTick, now + CropClimatesConfig.GREENHOUSE_CHANGE_DELAY.get());
