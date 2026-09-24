@@ -53,17 +53,15 @@ public final class ClimateReport {
         return pct(Math.round(v * 100) + "%", false);
     }
 
-    /** {@link #pct(double)}, with a decimal if rounding would hide that {@code v} is outside {@code lo–hi}. */
-    public static MutableComponent pct(double v, double lo, double hi) {
-        return pct(nearEdge(v * 100, lo * 100, hi * 100) + "%", false);
-    }
-
     /** {@link #pct(double)}, blue with a trailing 🌧 while it's raining. */
     public static MutableComponent pct(double v, boolean raining) {
         return pct(Math.round(v * 100) + "%", raining);
     }
 
-    /** {@link #pct(double, double, double)}, blue with a trailing 🌧 while it's raining. */
+    /**
+     * {@link #pct(double, boolean)}, with a decimal if rounding would hide that
+     * {@code v} is outside {@code lo–hi}.
+     */
     public static MutableComponent pct(double v, double lo, double hi, boolean raining) {
         return pct(nearEdge(v * 100, lo * 100, hi * 100) + "%", raining);
     }
