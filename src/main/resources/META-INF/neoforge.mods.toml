@@ -1,6 +1,6 @@
 modLoader = "javafml"
 loaderVersion = "[4,)"
-license = "MIT"
+license = "AGPL-3.0-or-later"
 
 [[mods]]
 modId = "crop_climates"
