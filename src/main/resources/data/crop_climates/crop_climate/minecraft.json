@@ -241,6 +241,7 @@
    0.3
   ],
   "item": "minecraft:nether_wart",
+  "nether": true,
   "temperature": [
    105,
    190
@@ -358,6 +359,7 @@
    0.3
   ],
   "item": "minecraft:twisting_vines",
+  "nether": true,
   "temperature": [
    120,
    200
@@ -371,6 +373,7 @@
    0.3
   ],
   "item": "minecraft:weeping_vines",
+  "nether": true,
   "temperature": [
    120,
    200

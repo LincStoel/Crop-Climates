@@ -51,7 +51,7 @@ public final class Reports {
             return report;
         }
 
-        MutableComponent sunlight = ClimateReport.key("sunlight", ClimateReport.sun(level.canSeeSky(pos)))
+        MutableComponent sunlight = ClimateReport.key("sunlight", ClimateReport.sun(level.canSeeSky(pos), band != null && band.nether()))
                 .withStyle(ChatFormatting.GRAY);
         OptionalDouble tempF = ClimateSampler.temperatureF(level, pos);
 

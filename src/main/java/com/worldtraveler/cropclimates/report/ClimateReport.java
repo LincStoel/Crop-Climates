@@ -92,9 +92,10 @@ public final class ClimateReport {
         return Long.toString(rounded);
     }
 
-    /** A yellow ☀️ in sunlight, a gray ◯ without. */
-    public static MutableComponent sun(boolean v) {
-        return key(v ? "mark.sun" : "mark.no_sun").withStyle(v ? ChatFormatting.YELLOW : ChatFormatting.GRAY);
+    /** A ☀️ in sunlight - yellow, or red for a nether crop it harms - and a gray ◯ without. */
+    public static MutableComponent sun(boolean v, boolean nether) {
+        ChatFormatting color = !v ? ChatFormatting.GRAY : nether ? ChatFormatting.RED : ChatFormatting.YELLOW;
+        return key(v ? "mark.sun" : "mark.no_sun").withStyle(color);
     }
 
     /** A tick, {@code ✘ too low} or {@code ✘ too high} for a value against a band. */

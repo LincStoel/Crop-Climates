@@ -20,6 +20,7 @@ import java.util.Optional;
  *   "hook": "CropGrowEvent",      // or "randomTick"; default CropGrowEvent
  *   "tree": false,                // saplings: wider tolerance, die back to a dead bush
  *   "aquatic": false,             // ignores humidity and sunlight while submerged
+ *   "nether": false,              // penalised under open sky instead of without it
  *   "item": "minecraft:wheat_seeds", // tooltip item; default: the block's own item
  *   "regresses": true             // default depends on the block type
  * }
@@ -31,6 +32,7 @@ public record BandSpec(
         ClimateBand.Hook hook,
         boolean tree,
         boolean aquatic,
+        boolean nether,
         Optional<ResourceLocation> item,
         Optional<Boolean> regresses
 ) {
@@ -68,12 +70,13 @@ public record BandSpec(
             HOOK_CODEC.optionalFieldOf("hook", ClimateBand.Hook.CROP_GROW_EVENT).forGetter(BandSpec::hook),
             Codec.BOOL.optionalFieldOf("tree", false).forGetter(BandSpec::tree),
             Codec.BOOL.optionalFieldOf("aquatic", false).forGetter(BandSpec::aquatic),
+            Codec.BOOL.optionalFieldOf("nether", false).forGetter(BandSpec::nether),
             ResourceLocation.CODEC.optionalFieldOf("item").forGetter(BandSpec::item),
             Codec.BOOL.optionalFieldOf("regresses").forGetter(BandSpec::regresses)
     ).apply(instance, BandSpec::new));
 
     public ClimateBand toBand(boolean regressesByDefault) {
         return new ClimateBand(temperature.lo(), temperature.hi(), humidity.lo(), humidity.hi(),
-                tree, aquatic, hook, regresses.orElse(regressesByDefault));
+                tree, aquatic, nether, hook, regresses.orElse(regressesByDefault));
     }
 }

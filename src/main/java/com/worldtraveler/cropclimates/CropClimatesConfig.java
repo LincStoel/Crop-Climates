@@ -51,6 +51,7 @@ public final class CropClimatesConfig {
     public static final ModConfigSpec.DoubleValue TREE_FORGIVENESS;
 
     public static final ModConfigSpec.DoubleValue SKY_PENALTY;
+    public static final ModConfigSpec.DoubleValue NETHER_SKY_PENALTY;
     public static final ModConfigSpec.DoubleValue DEFAULT_BIOME_MOISTURE;
     public static final ModConfigSpec.EnumValue<Units> DISPLAY_UNITS;
 
@@ -142,6 +143,9 @@ public final class CropClimatesConfig {
         SKY_PENALTY = builder
                 .comment("Flat multiplier applied when the crop cannot see the sky.")
                 .defineInRange("skyPenalty", 0.85, 0.0, 1.0);
+        NETHER_SKY_PENALTY = builder
+                .comment("Flat multiplier applied when a nether crop CAN see the sky. Nether crops take no skyPenalty.")
+                .defineInRange("netherSkyPenalty", 0.7, 0.0, 1.0);
         DEFAULT_BIOME_MOISTURE = builder
                 .comment("Moisture used for a biome that cannot be resolved at all (should not happen in practice).")
                 .defineInRange("defaultBiomeMoisture", 0.4, 0.0, 1.0);

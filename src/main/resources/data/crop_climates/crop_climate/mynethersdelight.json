@@ -6,6 +6,7 @@
    0.3
   ],
   "item": "mynethersdelight:bullet_pepper",
+  "nether": true,
   "temperature": [
    148,
    168
@@ -19,6 +20,7 @@
    0.3
   ],
   "item": "mynethersdelight:crimson_fungus_colony",
+  "nether": true,
   "temperature": [
    148,
    168
@@ -31,6 +33,7 @@
    0,
    0.3
   ],
+  "nether": true,
   "temperature": [
    148,
    168
@@ -44,6 +47,7 @@
    0.3
   ],
   "item": "mynethersdelight:warped_fungus_colony",
+  "nether": true,
   "temperature": [
    140,
    160

@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 class RegressionTest {
 
-    private static final ClimateBand BAND = new ClimateBand(50, 80, 0.3, 0.7, false, false,
+    private static final ClimateBand BAND = new ClimateBand(50, 80, 0.3, 0.7, false, false, false,
             ClimateBand.Hook.CROP_GROW_EVENT, true);
 
     private static GrowthGovernor.GrowthReading reading(double tempF, double humidity, double fitT, double fitM) {

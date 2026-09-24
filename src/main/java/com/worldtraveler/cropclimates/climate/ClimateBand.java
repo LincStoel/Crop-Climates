@@ -5,6 +5,7 @@ package com.worldtraveler.cropclimates.climate;
  * {@code crop_climate/*.json} datapack entry (see {@link BandSpec}).
  * Temperatures are Fahrenheit; humidity is 0-1.
  *
+ * @param nether    shuns the sky: penalised under open sky instead of without it
  * @param regresses whether a plant far outside its bands slowly loses growth
  *                  stages - see {@code growth.Regression}
  */
@@ -15,6 +16,7 @@ public record ClimateBand(
         double moistHi,
         boolean tree,
         boolean aquatic,
+        boolean nether,
         Hook hook,
         boolean regresses
 ) {

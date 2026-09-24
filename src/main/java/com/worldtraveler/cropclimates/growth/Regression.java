@@ -31,7 +31,8 @@ import java.util.function.Supplier;
  * roll failed, a plant whose temperature or humidity fit is below
  * {@code regressionFitThreshold} loses one {@code age} step with probability
  * {@code regressionChance}. Saplings drop from stage 1 to 0, then die to a dead
- * bush. Each wilt puffs a downward-drifting particle tinted by its cause - the
+ * bush; other crops lose one age step, then break entirely once at age 0.
+ * Each wilt puffs a downward-drifting particle tinted by its cause - the
  * opposite of bone meal's rising green sparkle.
  *
  * <p>The block change is queued and applied at the end of the level tick,
@@ -149,7 +150,10 @@ public final class Regression {
         }
         int value = state.getValue(age);
         int min = age.getPossibleValues().stream().mapToInt(Integer::intValue).min().orElse(0);
-        return value > min ? state.setValue(age, value - 1) : null;
+        if (value > min) {
+            return state.setValue(age, value - 1);
+        }
+        return Blocks.AIR.defaultBlockState();
     }
 
     @Nullable

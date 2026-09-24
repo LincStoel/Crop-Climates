@@ -27,7 +27,7 @@ import java.util.OptionalDouble;
  * runs exactly the same math:
  * <ol>
  *   <li>{@link #resolve} reads the world: temperature, humidity, sky.</li>
- *   <li>{@link #score} is pure: fits, curve, sky penalty.</li>
+ *   <li>{@link #score} is pure: fits, curve, sky penalty (inverted for nether crops).</li>
  * </ol>
  * Humidity comes from, in order: being submerged (aquatic crops - waived),
  * the greenhouse the spot is in (the room's humidity, in both directions),
@@ -111,7 +111,11 @@ public final class GrowthGovernor {
 
         double total = GrowthModel.total(fitT, fitM,
                 CropClimatesConfig.GROWTH_FLOOR.get(), CropClimatesConfig.GROWTH_MAX.get(), CropClimatesConfig.GROWTH_CURVE.get());
-        if (!c.seesSky()) {
+        if (band.nether()) {
+            if (c.seesSky()) {
+                total *= CropClimatesConfig.NETHER_SKY_PENALTY.get();
+            }
+        } else if (!c.seesSky()) {
             total *= CropClimatesConfig.SKY_PENALTY.get();
         }
         return new GrowthReading(total, fitT, fitM, c);
