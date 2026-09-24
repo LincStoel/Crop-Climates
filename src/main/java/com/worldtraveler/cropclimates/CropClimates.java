@@ -19,11 +19,13 @@ import net.minecraft.core.particles.ParticleType;
 import net.minecraft.core.particles.SimpleParticleType;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
+import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
@@ -65,11 +67,22 @@ public final class CropClimates {
     private static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(MOD_ID);
     private static final DeferredRegister<EntityType<?>> ENTITY_TYPES = DeferredRegister.create(Registries.ENTITY_TYPE, MOD_ID);
     private static final DeferredRegister<ParticleType<?>> PARTICLES = DeferredRegister.create(Registries.PARTICLE_TYPE, MOD_ID);
+    private static final DeferredRegister<CreativeModeTab> CREATIVE_TABS = DeferredRegister.create(Registries.CREATIVE_MODE_TAB, MOD_ID);
 
     public static final DeferredItem<SoilTesterItem> SOIL_TESTER = ITEMS.registerItem(
             "soil_tester", SoilTesterItem::new, new Item.Properties().stacksTo(1));
     public static final DeferredItem<HygrometerItem> HYGROMETER = ITEMS.registerItem(
             "hygrometer", HygrometerItem::new, new Item.Properties());
+
+    public static final DeferredHolder<CreativeModeTab, CreativeModeTab> CREATIVE_TAB =
+            CREATIVE_TABS.register(MOD_ID, () -> CreativeModeTab.builder()
+                    .title(Component.translatable("itemGroup." + MOD_ID))
+                    .icon(() -> HYGROMETER.get().getDefaultInstance())
+                    .displayItems((parameters, output) -> {
+                        output.accept(SOIL_TESTER);
+                        output.accept(HYGROMETER);
+                    })
+                    .build());
 
     public static final DeferredHolder<EntityType<?>, EntityType<HygrometerEntity>> HYGROMETER_ENTITY =
             ENTITY_TYPES.register("hygrometer", () -> EntityType.Builder.<HygrometerEntity>of(HygrometerEntity::new, MobCategory.MISC)
@@ -97,6 +110,7 @@ public final class CropClimates {
         ITEMS.register(modBus);
         ENTITY_TYPES.register(modBus);
         PARTICLES.register(modBus);
+        CREATIVE_TABS.register(modBus);
         modBus.addListener(RegisterPayloadHandlersEvent.class, this::registerPayloads);
         modBus.addListener(BuildCreativeModeTabContentsEvent.class, this::addToCreativeTab);
 

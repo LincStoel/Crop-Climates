@@ -12,6 +12,7 @@
   "advancements.crop_climates.invasive.title": "Invasive!",
   "advancements.crop_climates.invasive.description": "Use a Soil Tester on a player or mob",
   "entity.crop_climates.hygrometer": "Hygrometer",
+  "itemGroup.crop_climates": "Crop Climates",
 
   "tooltip.crop_climates.hold_alt": "Hold %s for growing conditions.",
   "tooltip.crop_climates.conditions": "Growing conditions",
