@@ -1,8 +1,8 @@
 # Crop Climates
 
-**An add-on for [Cold Sweat](https://www.curseforge.com/minecraft/mc-mods/cold-sweat) that makes crops care about where they're planted.**
+**An add-on for [Cold Sweat](https://www.curseforge.com/minecraft/mc-mods/cold-sweat) that makes crop growth consider the environment.**
 
-Every plant has a temperature and humidity range it likes. Plant it somewhere that matches and it grows faster than vanilla. Plant it somewhere hostile and it slows to a crawl, and far enough outside its range it starts to wilt. Temperature is read live from Cold Sweat, so the biome, altitude, time of day, and your hearths and iceboxes all affect how a farm grows.
+Every plant has a temperature and humidity range that it grows best in. Plant your crops somewhere that matches and it will grow well. Plant your crops somewhere hostile and growth slows to a crawl. Plant your crops far enough outside their range and they will start to wilt. Temperature is read live from Cold Sweat, so the biome, altitude, time of day, local temperature, etc. all affect how a farm grows. Additionally, crop climates implements a humidity system that builds on top of Minecraft's humidity allowing for greenhouses (enclosed spaces with a hygrometer) to modulate humidity to suit your crop's needs.
 
 Minecraft 1.21.1 · NeoForge · requires Cold Sweat 2.4.3+
 
@@ -10,19 +10,18 @@ Minecraft 1.21.1 · NeoForge · requires Cold Sweat 2.4.3+
 
 ## Features
 
-- **Climate-driven growth.** Each crop, sapling and growable plant has its own ideal temperature and humidity band. How well its spot matches scales growth from a small bonus (1.25× vanilla at the centre of both bands) down to nearly nothing.
-- **Wilting.** Plants far outside their band slowly lose growth stages, with their own particle effect. Saplings that wilt all the way die off into a dead bush.
-- **Weather and sky.** Rain raises humidity for crops it actually falls on, so a glass roof keeps it off. Crops that can't see the sky grow a little slower. Nether crops work the other way round and are penalised under open sky.
-- **Greenhouses.** Hang a **Hygrometer** inside a sealed room to turn it into a greenhouse. Every crop inside grows by the room's humidity instead of the biome's. Water and wet sponges humidify the room, lava and dry sponges dry it out, and its dial shows the current reading. A very humid greenhouse drips from the ceiling and a very dry one kicks up dust. Rooms are detected with Cold Sweat's own hearth rules, so a room that holds hearth air is a room that counts as a greenhouse.
-- **Aquatic crops.** Submerged water plants such as kelp ignore humidity and sunlight while they're underwater.
-- **Soil Tester.** A handheld tool that reports the temperature, humidity and expected growth rate at any crop or spot, in the same terms the growth code uses.
-- **Tooltips.** Hold Alt over a seed or sapling to see its ideal conditions and whether it would thrive or struggle where you're standing. Temperatures are shown in your own Cold Sweat unit.
+- **Climate-driven growth.** Each crop, sapling and growable plant has its own ideal temperature and humidity band. How well its environment matches scales growth from a small bonus (1.25× vanilla at the center of both bands) down to nearly nothing.
+- **Wilting.** Plants far outside their band slowly lose growth stages, with their own particle effect. Saplings that wilt all the way die off into a dead bush, crops eventually wither and break.
+- **Weather and sky.** Rain raises humidity for crops it actually falls on, meaning that open air crops contend with a more variable humidity. However, crops that can't see the sky grow a little slower since they aren't receiving true sunlight. Nether crops work the other way round and are penalized under open sky.
+- **Greenhouses.** Hang a **Hygrometer** inside a sealed room to turn it into a greenhouse allowing you to control the humidity by placing water, lava, as well as wet and dry sponges. Water and wet sponges humidify the room, lava and dry sponges dry it out.
+- **Soil Tester.** A handheld tool that reports the temperature, humidity and expected growth rate at any crop.
+- **Tooltips.** Hold Alt over a seed or sapling to see its ideal conditions and whether it would thrive or struggle where you're standing.
 - **Commands.** `/cropclimates explain <pos>` breaks down why a plant is growing the way it is, `/cropclimates audit` lists crop-like blocks from your mods that have no climate band yet, and `/cropclimates status` shows the mod's current state.
-- **Advancements.** Five of them in the Husbandry tab, for building a greenhouse, using the Soil Tester, and planting in perfect or desperate conditions.
+- **Advancements.** Custom advancements commemorate your crop growing exploits.
 
 ## Data-driven crop bands
 
-Every crop's growth band is defined in datapack JSON under `data/<namespace>/crop_climate/<modid>.json`, so modpack makers can retune, add or remove crops without touching code. A pack only needs to include the crops it changes, since files from different datapacks are merged entry by entry.
+Every crop's growth band is defined in datapack JSON under `data/<namespace>/crop_climate/<modid>.json`, so modpack makers can retune, add or remove crops without touching code. A pack only needs to include the crops it changes.
 
 ```json
 {
@@ -44,14 +43,26 @@ Entries can name a single block or a block tag, and optional flags cover sapling
 
 Crop Climates ships with climate bands for vanilla Minecraft and the following mods. Each file only loads if its mod is installed, so there's nothing to configure.
 
-| | | |
-|---|---|---|
-| Aether | Ars Elemental | Ars Nouveau |
-| Brewin' and Chewin' | Cold Sweat | Corn Delight |
-| Deep Aether | Ecologics | Ender's Delight |
-| Farmer's Delight | Fruits Delight | Ghosts |
-| Luminous Nether | My Nether's Delight | Oritech |
-| Quark | Supplementaries | WAN's Ancient Beasts |
+Aether, 
+Ars Elemental, 
+Ars Nouveau, 
+Brewin' and Chewin', 
+Cold Sweat, 
+Corn Delight, 
+Deep Aether, 
+Ecologics, 
+Ender's Delight, 
+Farmer's Delight, 
+Fruits Delight, 
+Ghosts, 
+Luminous Nether, 
+My Nether's Delight, 
+Oritech, 
+Quark, 
+Supplementaries, 
+WAN's Ancient Beasts
+
+(Not on this list? it's easy to add crops via datapack!)
 
 [Jade](https://www.curseforge.com/minecraft/mc-mods/jade) is supported as an optional extra: looking at a crop shows how well it's doing (thriving, struggling and so on), and looking at a Hygrometer shows its greenhouse humidity.
 
@@ -67,13 +78,13 @@ Almost every number in the mod is exposed in the server config, including:
 - sky and Nether-sky penalties, and how much rain raises humidity
 - whether plants wilt, how far outside their band, and how quickly
 - greenhouse size limits, humidity strength, and drip and dust effects
-- the growth tiers shown by the Soil Tester, tooltips and Jade (their names and thresholds)
+- the growth tiers shown by the Soil Tester, tooltips, and Jade readout
 - a blacklist of blocks or block tags the mod should leave alone
 - cache sizes and per-tick budgets for servers that want to tune performance
 
 ## Performance
 
-Crop Climates is designed to stay out of the way. It was stress tested with fields of around 50,000 plants at 10× the normal random tick speed, thousands of separate greenhouses, and a maximum-size greenhouse packed with growing trees. The mod's own share of server tick time stayed in the low single digits, and even the heaviest scenarios stayed well within the tick budget.
+Crop Climates is designed to stay out of the way. It was stress tested with fields of around 50,000 plants at 10× the normal random tick speed, thousands of separate greenhouses, and a maximum-size greenhouse packed with growing trees. Crop Climates' own share of server tick time stayed in the low single digits, and even the heaviest scenarios stayed well within manageable load.
 
 ## Requirements
 
@@ -81,7 +92,3 @@ Crop Climates is designed to stay out of the way. It was stress tested with fiel
 - NeoForge 21.1.181 or newer
 - Cold Sweat 2.4.3 or newer (required)
 - Jade 15+ (optional)
-
-## License
-
-MIT
