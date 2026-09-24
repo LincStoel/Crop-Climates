@@ -106,19 +106,17 @@ public final class ClimateReport {
                 : key("mark.too_high").withStyle(ChatFormatting.RED);
     }
 
-    public ClimateReport row(Component text) {
+    public void row(Component text) {
         lines.add(Component.literal("│ ").withStyle(ChatFormatting.DARK_GRAY).append(text));
-        return this;
     }
 
     /** A grey label row: {@code key(path, args)} styled grey, args keep their own style. */
-    public ClimateReport row(String path, Object... args) {
-        return row(key(path, args).withStyle(ChatFormatting.GRAY));
+    public void row(String path, Object... args) {
+        row(key(path, args).withStyle(ChatFormatting.GRAY));
     }
 
-    public ClimateReport divider() {
+    public void divider() {
         lines.add(Component.literal("├" + BORDER).withStyle(ChatFormatting.DARK_GRAY));
-        return this;
     }
 
     public void send(Consumer<Component> out) {
